@@ -170,6 +170,15 @@ input:focus,select:focus{border-color:var(--yel);box-shadow:0 0 0 3px rgba(255,2
   const saveMe = () => LS.set('pc_me', JSON.stringify(me));
   const M = GS.Motion(() => cfg); M.bindKeys(); M.bindTap($('sMain'));
   let permDone = false;
+  /* 校正用：網址加 &debug=1 會在畫面上方顯示即時力道 */
+  if (/[?&]debug=1\b/.test(location.search)) {
+    const dbg = document.createElement('div');
+    dbg.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(8px + env(safe-area-inset-top,0px));z-index:99;background:rgba(0,0,0,.82);color:#fff;font:600 14px/1.5 monospace;padding:8px 10px;border-radius:10px;pointer-events:none;white-space:pre';
+    document.body.appendChild(dbg);
+    setInterval(() => {
+      dbg.textContent = `最近1秒最大力道：${M.peak.toFixed(1)}（門檻 ${cfg.swing}）\n目前力道：${M.lin.toFixed(1)}　已算：${M.shakes} 下\n感應器：${M.mode === 'motion' ? (M.src === 'a' ? '有' : '僅含重力') : '未偵測到'}　直立：${M.upright ? '是' : '否'}`;
+    }, 100);
+  }
   let local = { key: '', v: 0, sent: -1 };
 
   /* ───── 畫面切換 ───── */
@@ -240,9 +249,9 @@ input:focus,select:focus{border-color:var(--yel);box-shadow:0 0 0 3px rgba(255,2
   }
   M.onShake = src => { if (testing) { testN++; vib(30); $('meterI').style.width = Math.min(100, testN * 34) + '%'; $('permOk').textContent = testN < 3 ? `${testN} 下` : ''; if (testN >= 3) { $('permOk').textContent = '✅ 偵測成功'; vib(60); testing = false; setTimeout(finishPerm, 700); } return; } onShake(src); };
   /* Android 等不用詢問權限的手機：測過一次之後重新整理就直接開始 */
-  if (typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function') {
-    M.request();
-    if (LS.get('pc_tested') === '1') permDone = true;
+  /* 測過一次的手機：重新整理時先試著直接啟用（Android 不用按；iPhone 需要按鈕，這裡會失敗、照樣顯示按鈕） */
+  if (LS.get('pc_tested') === '1') {
+    M.request().then(r => { if (r === 'ok') setTimeout(() => { if (M.saw && !permDone) { permDone = true; route(); } }, 800); }).catch(() => { });
   }
   try { if (navigator.wakeLock) { const wl = () => navigator.wakeLock.request('screen').catch(() => { }); wl(); document.addEventListener('visibilitychange', () => { if (!document.hidden) wl(); }); } } catch (e) { }
 

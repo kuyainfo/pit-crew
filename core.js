@@ -40,7 +40,7 @@
     win4: 6,         // 第 4 關 出站：綠燈後比幾秒
     grace: 10,       // 第一隊完成後再給其他隊幾秒
     maxSec: 40,      // 每關最長秒數
-    swing: 8,        // 甩動門檻（m/s²）：手機往一個方向甩超過這個力道、再甩回來才算一下；越小越容易算
+    swing: 7,        // 甩動門檻（m/s²，地心引力約 9.8）：往一個方向甩超過這個力道、再往反方向甩回來才算一下；越小越容易算
     rate: 10,        // 每人每秒最多算幾下（避免手機靈敏度差太多）
     wobble: 3.5,     // 加油關：晃動超過多少（m/s²）就斷油
     cut: 1           // 斷油秒數
@@ -311,7 +311,7 @@
     const M = {
       mode: 'none', saw: false, shakes: 0, onShake: null,
       grav: null, lin: 0, wobAt: 0, upright: true, held: false, keyHeld: false,
-      tokens: 10, lastTok: performance.now(), sgn: [0, 0, 0], strongAt: 0, lastShake: 0,
+      tokens: 10, lastTok: performance.now(), dir: null, strongAt: 0, lastShake: 0, peak: 0, peakAt: 0, src: '',
       async request() {
         try {
           if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -347,19 +347,21 @@
           const gm = Math.hypot(M.grav.x, M.grav.y, M.grav.z) || 9.8;
           M.upright = Math.abs(M.grav.z) < 0.6 * gm;    // 手機直立（不是平放在桌上）
         }
-        if (ok(a)) { lx = a.x; ly = a.y; lz = a.z || 0; }
-        else { lx = g.x - M.grav.x; ly = g.y - M.grav.y; lz = (g.z || 0) - M.grav.z; }
+        if (ok(a)) { lx = a.x; ly = a.y; lz = a.z || 0; M.src = 'a'; }
+        else { lx = g.x - M.grav.x; ly = g.y - M.grav.y; lz = (g.z || 0) - M.grav.z; M.src = 'g'; }
         const mag = Math.hypot(lx, ly, lz); M.lin = mag;
         if (mag > c.wobble) M.wobAt = now;
-        /* 甩動判定：任一軸先往一邊甩（超過門檻）、再往反方向甩（超過門檻）＝算一下
-           上下甩、左右甩、前後甩都可以；只是晃一下、慢慢移動都不會算 */
-        if (now - M.strongAt > 600) M.sgn = [0, 0, 0];
-        const ax = [lx, ly, lz], T = c.swing;
+        /* 甩動判定（不分方向）：手機往某個方向甩、力道超過門檻，接著往「相反方向」也超過門檻＝算一下
+           不管手機怎麼拿、往哪個方向甩都可以；輕晃、慢慢移動都不會算 */
+        if (now - M.strongAt > 600) M.dir = null;
+        const T = c.swing;
+        if (now - M.peakAt > 1000) { M.peak = 0; M.peakAt = now; }
+        if (mag > M.peak) M.peak = mag;
         let rev = false;
-        for (let k = 0; k < 3; k++) {
-          const v = ax[k];
-          if (v > T) { if (M.sgn[k] === -1) rev = true; M.sgn[k] = 1; M.strongAt = now; }
-          else if (v < -T) { if (M.sgn[k] === 1) rev = true; M.sgn[k] = -1; M.strongAt = now; }
+        if (mag > T) {
+          const u = [lx / mag, ly / mag, lz / mag];
+          if (M.dir && u[0] * M.dir[0] + u[1] * M.dir[1] + u[2] * M.dir[2] < -0.3) rev = true;
+          M.dir = u; M.strongAt = now;
         }
         if (rev && now - M.lastShake > 80) M.shake('m');
       },
