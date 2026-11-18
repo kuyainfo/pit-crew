@@ -40,7 +40,7 @@
     win4: 6,         // 第 4 關 出站：綠燈後比幾秒
     grace: 10,       // 第一隊完成後再給其他隊幾秒
     maxSec: 40,      // 每關最長秒數
-    shakeTh: 13,     // 搖晃門檻（m/s²）：越小越容易算一下
+    swing: 8,        // 甩動門檻（m/s²）：手機往一個方向甩超過這個力道、再甩回來才算一下；越小越容易算
     rate: 10,        // 每人每秒最多算幾下（避免手機靈敏度差太多）
     wobble: 3.5,     // 加油關：晃動超過多少（m/s²）就斷油
     cut: 1           // 斷油秒數
@@ -221,7 +221,7 @@
       c.need1 = num(s.need1, D.need1, 5, 500); c.need2 = num(s.need2, D.need2, 5, 800);
       c.need3 = num(s.need3, D.need3, 2, 60); c.win4 = num(s.win4, D.win4, 2, 20);
       c.grace = num(s.grace, D.grace, 3, 60); c.maxSec = num(s.maxSec, D.maxSec, 10, 180);
-      c.shakeTh = num(s.shakeTh, D.shakeTh, 4, 40); c.rate = num(s.rate, D.rate, 3, 20);
+      c.swing = num(s.swing, D.swing, 3, 30); c.rate = num(s.rate, D.rate, 3, 20);
       c.wobble = num(s.wobble, D.wobble, 0.5, 15); c.cut = num(s.cut, D.cut, 0, 5);
       const ta = toArr(s.teams).filter(Boolean);
       c.teams = (ta.length ? ta : D.teams).slice(0, 8).map((t, i) => ({ n: String(t.n || ('第' + (i + 1) + '隊')).slice(0, 8), c: t.c || '#888888', tb: String(t.tb || '') }));
@@ -311,7 +311,7 @@
     const M = {
       mode: 'none', saw: false, shakes: 0, onShake: null,
       grav: null, lin: 0, wobAt: 0, upright: true, held: false, keyHeld: false,
-      tokens: 10, lastTok: performance.now(), armed: true, lastShake: 0,
+      tokens: 10, lastTok: performance.now(), sgn: [0, 0, 0], strongAt: 0, lastShake: 0,
       async request() {
         try {
           if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -351,8 +351,17 @@
         else { lx = g.x - M.grav.x; ly = g.y - M.grav.y; lz = (g.z || 0) - M.grav.z; }
         const mag = Math.hypot(lx, ly, lz); M.lin = mag;
         if (mag > c.wobble) M.wobAt = now;
-        if (!M.armed && mag < c.shakeTh * 0.45) M.armed = true;
-        if (M.armed && mag > c.shakeTh && now - M.lastShake > 70) { M.armed = false; M.shake('m'); }
+        /* 甩動判定：任一軸先往一邊甩（超過門檻）、再往反方向甩（超過門檻）＝算一下
+           上下甩、左右甩、前後甩都可以；只是晃一下、慢慢移動都不會算 */
+        if (now - M.strongAt > 600) M.sgn = [0, 0, 0];
+        const ax = [lx, ly, lz], T = c.swing;
+        let rev = false;
+        for (let k = 0; k < 3; k++) {
+          const v = ax[k];
+          if (v > T) { if (M.sgn[k] === -1) rev = true; M.sgn[k] = 1; M.strongAt = now; }
+          else if (v < -T) { if (M.sgn[k] === 1) rev = true; M.sgn[k] = -1; M.strongAt = now; }
+        }
+        if (rev && now - M.lastShake > 80) M.shake('m');
       },
       /* 拿穩判定：感應器＝直立且沒有大晃動；點擊模式＝手指按住 */
       steady(now) {

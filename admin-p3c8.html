@@ -147,7 +147,7 @@ label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
       </div>
       <h3 style="margin-top:18px">感應靈敏度（真機實測後再微調）</h3>
       <div class="grid2" style="grid-template-columns:repeat(4,1fr)">
-        <div><label>搖晃門檻 m/s²（越小越容易算一下）</label><input type="number" step="0.5" id="cTh"></div>
+        <div><label>甩動門檻 m/s²（越小越容易算一下，建議 6～10）</label><input type="number" step="0.5" id="cTh"></div>
         <div><label>每人每秒最多算幾下</label><input type="number" id="cRate"></div>
         <div><label>加油關斷油門檻 m/s²（越小越嚴格）</label><input type="number" step="0.5" id="cWob"></div>
         <div><label>斷油秒數</label><input type="number" step="0.5" id="cCut"></div>
@@ -443,7 +443,7 @@ label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
       $('teams').innerHTML = ''; cfg.teams.forEach(t => $('teams').appendChild(teamRow(t)));
       $('cNeed1').value = cfg.need1; $('cNeed2').value = cfg.need2; $('cNeed3').value = cfg.need3; $('cWin4').value = cfg.win4;
       $('cGrace').value = cfg.grace; $('cMax').value = cfg.maxSec;
-      $('cTh').value = cfg.shakeTh; $('cRate').value = cfg.rate; $('cWob').value = cfg.wobble; $('cCut').value = cfg.cut;
+      $('cTh').value = cfg.swing; $('cRate').value = cfg.rate; $('cWob').value = cfg.wobble; $('cCut').value = cfg.cut;
     }
     $('addTeam').onclick = () => {
       if ($('teams').children.length >= 8) { alert('最多 8 隊'); return; }
@@ -456,7 +456,7 @@ label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
       const c = {
         title: $('cTitle').value.trim() || GS.DEFAULT_CFG.title, brand: $('cBrand').value.trim() || GS.DEFAULT_CFG.brand, tables: $('cTables').value.trim() || '1-8', teams,
         need1: +$('cNeed1').value, need2: +$('cNeed2').value, need3: +$('cNeed3').value, win4: +$('cWin4').value,
-        grace: +$('cGrace').value, maxSec: +$('cMax').value, shakeTh: +$('cTh').value, rate: +$('cRate').value, wobble: +$('cWob').value, cut: +$('cCut').value
+        grace: +$('cGrace').value, maxSec: +$('cMax').value, swing: +$('cTh').value, rate: +$('cRate').value, wobble: +$('cWob').value, cut: +$('cCut').value
       };
       const clean = GS.cfgOf({ cfg: c });
       await aw(() => db.set(P('game/cfg'), clean));

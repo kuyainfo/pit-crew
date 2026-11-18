@@ -370,7 +370,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden}
     T(`STAGE ${S.no} / 4  ・  ${S.en}`, px + 90, py + 110, 34, YEL, 'left', 900, ORB);
     T(S.name, px + 86, py + 250, 170, '#fff', 'left', 900);
     T(S.tip, px + 90, py + 400, 50, '#fff', 'left', 900);
-    const sub = S.act === 'steady' ? '手機要直立拿著，平放在桌上不算喔' : S.act === 'burst' ? `綠燈亮起後 ${cfg.win4} 秒，比全隊人均搖幾下` : (s === 0 ? `每人平均搖 ${cfg.need1} 下就能把車頂起來` : `每人平均搖 ${cfg.need2} 下換完 4 顆輪胎`);
+    const sub = S.act === 'steady' ? '手機要直立拿著，平放在桌上不算喔' : S.act === 'burst' ? `綠燈亮起後 ${cfg.win4} 秒，比全隊人均搖幾下（像搖飲料一樣上下甩）` : '握緊手機，像搖飲料一樣上下用力甩';
     T(sub, px + 90, py + 480, 34, '#b9b4c8', 'left', 700);
     T(s < 3 ? `計分：第一名 10 分，每慢 1 秒少 1 分` : '計分：第一名 10 分，其他隊依下數比例給分', px + 90, py + 560, 28, '#8f8aa0', 'left', 700);
     drawPhoneIcon(px + pw - 250, py + 320, 230, S.act, performance.now() / 1000);
@@ -498,9 +498,9 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden}
     T(cfg.title, 90, logoImg ? 340 : 250, 150, '#fff', 'left', 900);
     T('全隊合力・最快進站', 96, logoImg ? 440 : 370, 44, '#cfc9dc', 'left', 700);
     // 步驟
-    const steps = ['掃描 QR code', '輸入名字、選桌號', '按「啟用感應」，搖一下測試'];
+    const steps = ['掃描 QR code', '輸入名字、選桌號', '按「啟用感應」，上下甩 3 下測試'];
     steps.forEach((s, k) => { const yy = 520 + k * 84; c.fillStyle = YEL; c.beginPath(); c.arc(126, yy, 30, 0, TAU); c.fill(); T(String(k + 1), 126, yy + 2, 34, '#111', 'center', 900, ORB); T(s, 180, yy, 42, '#fff', 'left', 700); });
-    T('⚠ 搖的時候握緊手機，手不要甩太開', 96, 800, 34, '#ffb4c2', 'left', 700);
+    T('⚠ 搖的時候握緊手機，小心不要甩出去', 96, 800, 34, '#ffb4c2', 'left', 700);
     // QR
     const qx = 1360, qy = 120, qs = 440;
     c.fillStyle = '#fff'; rr(c, qx - 20, qy - 20, qs + 40, qs + 40, 24); c.fill();

@@ -209,7 +209,10 @@ input:focus,select:focus{border-color:var(--yel);box-shadow:0 0 0 3px rgba(255,2
       me = { pid: me.pid || GS.uid(), n, tb, tm: GS.teamOfTable(cfg, tb) };
       await db.set(P('players/' + me.pid), { n: me.n, tb: me.tb, tm: me.tm, hb: db.now() });
       saveMe(); LS.set('pc_reset', String(game.reset || ''));
-      route();
+      /* iPhone：打過字的頁面一搖就會跳「還原輸入」，重新載入頁面清掉打字紀錄 */
+      document.activeElement && document.activeElement.blur && document.activeElement.blur();
+      setTimeout(() => location.reload(), 150);
+      return;
     } catch (e) { console.error(e); $('joinErr').textContent = '連線失敗，請再按一次'; }
     $('joinBtn').disabled = false;
   };
@@ -224,7 +227,7 @@ input:focus,select:focus{border-color:var(--yel);box-shadow:0 0 0 3px rgba(255,2
       $('permSkip').hidden = false; return;
     }
     $('permBtn').hidden = true;
-    $('permTxt').innerHTML = '<b>用力搖一下手機</b>，看到綠色勾勾就成功了！';
+    $('permTxt').innerHTML = '<b>握緊手機，像搖飲料一樣上下用力甩</b><br>甩 3 下，看到綠色勾勾就成功了！';
     clearTimeout(permTimer);
     permTimer = setTimeout(() => { if (!M.saw) { $('permTxt').innerHTML = '這支手機偵測不到感應器。<br>可以改用<b>點擊模式</b>：狂點螢幕＝搖、按住螢幕＝拿穩'; $('permSkip').hidden = false; } }, 2500);
     testing = true;
@@ -235,7 +238,7 @@ input:focus,select:focus{border-color:var(--yel);box-shadow:0 0 0 3px rgba(255,2
     testing = false; permDone = true; LS.set('pc_tested', '1');
     route();
   }
-  M.onShake = src => { if (testing) { testN++; $('meterI').style.width = Math.min(100, testN * 34) + '%'; if (testN >= 3) { $('permOk').textContent = '✅ 偵測成功'; vib(60); testing = false; setTimeout(finishPerm, 700); } return; } onShake(src); };
+  M.onShake = src => { if (testing) { testN++; vib(30); $('meterI').style.width = Math.min(100, testN * 34) + '%'; $('permOk').textContent = testN < 3 ? `${testN} 下` : ''; if (testN >= 3) { $('permOk').textContent = '✅ 偵測成功'; vib(60); testing = false; setTimeout(finishPerm, 700); } return; } onShake(src); };
   /* Android 等不用詢問權限的手機：測過一次之後重新整理就直接開始 */
   if (typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function') {
     M.request();
@@ -362,12 +365,12 @@ input:focus,select:focus{border-color:var(--yel);box-shadow:0 0 0 3px rgba(255,2
     const stg = S ? `STAGE ${S.no}/4 ・ ${S.en}` : 'PIT CREW';
     const tap = M.mode !== 'motion';
     if (ph === 'lobby' || s < 0 || s == null) {
-      setIcon('wait'); setTxt('PIT CREW', '看大螢幕！', '等主持人開始<br>遊戲中不用看手機，跟著大螢幕狂搖就好', '', '', null, tap ? '點擊模式：狂點螢幕＝搖、按住螢幕＝拿穩' : '握緊手機，搖的時候手不要甩太開');
+      setIcon('wait'); setTxt('PIT CREW', '看大螢幕！', '等主持人開始<br>遊戲中不用看手機，跟著大螢幕狂搖就好', '', '', null, tap ? '點擊模式：狂點螢幕＝搖、按住螢幕＝拿穩' : '握緊手機，像搖飲料一樣<b>上下用力甩</b>');
       return;
     }
     if (ph === 'intro') {
       setIcon(S.act); if (S.act === 'shake') sm.classList.add('wig');
-      setTxt(stg, S.name, S.tip, '', '', null, S.act === 'steady' ? (tap ? '點擊模式：按住螢幕不放＝拿穩' : '手機要<b>直立</b>拿著，平放在桌上不算喔') : '準備好！主持人倒數後開始');
+      setTxt(stg, S.name, S.tip, '', '', null, S.act === 'steady' ? (tap ? '點擊模式：按住螢幕不放＝拿穩' : '手機要<b>直立</b>拿著，平放在桌上不算喔') : (tap ? '點擊模式：狂點螢幕' : '握緊手機，<b>上下用力甩</b>，甩一來一回就算'));
       return;
     }
     if (ph === 'count' || ph === 'ready') {
