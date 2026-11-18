@@ -36,13 +36,14 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden}
   let game = {}, cfg = GS.cfgOf(null), round = 0, stat = null, resAll = {}, players = {}, logoImg = null, stKey = '';
   const subs = {};
   function resub(k, fn) { if (subs[k]) subs[k](); subs[k] = fn ? fn() : null; }
-  let lastStatus = '', statusAt = performance.now(), disp = [];
+  let lastStatus = '', statusAt = performance.now(), disp = [], lastStart = 0;
   db.on(P('game'), g => {
     game = g || {}; cfg = GS.cfgOf(game);
     const r = game.round || 1;
     if (r !== round) { round = r; resub('res', () => db.on(P('res/' + r), v => { resAll = v || {}; })); }
     const s = game.stage == null ? -1 : game.stage, key = r + '_' + s;
     if (key !== stKey) { stKey = key; stat = null; disp = []; sparks = []; if (s >= 0) resub('stat', () => db.on(P('stat/' + r + '/' + s), v => { stat = v; })); else resub('stat', null); }
+    if ((game.startAt || 0) !== lastStart) { lastStart = game.startAt || 0; disp = []; sparks = []; }   // 重玩本關：畫面歸零
     const st = (game.status || 'lobby') + '_' + s;
     if (st !== lastStatus) { lastStatus = st; statusAt = performance.now(); if (game.status === 'podium') { confetti = []; } }
   });

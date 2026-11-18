@@ -268,7 +268,7 @@ label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
       let startAt, greenAt = null, endAt;
       if (s < 3) { startAt = now + 3600; endAt = startAt + cfg.maxSec * 1000; }
       else { startAt = now + 1200; greenAt = Math.round(startAt + 5 * GS.LIGHT_MS + 600 + Math.random() * 2000); endAt = greenAt + cfg.win4 * 1000 + 300; }
-      statMem = { startAt, endAt, t: mem.map(n => ({ p: 0, v: 0, n: Math.max(1, n) })) }; prevP = [];
+      statMem = { startAt, endAt, t: mem.map(n => ({ p: 0, v: 0, n: Math.max(1, n) })) }; prevP = []; finalizing = false;
       botReset();
       aw(async () => {
         await clearStage(round, s);
@@ -285,7 +285,7 @@ label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
     $('bRetry').onclick = () => {
       const s = stage(); if (s < 0) return;
       if (!confirm(`重玩第 ${s + 1} 關？這關的成績會清掉。`)) return;
-      statMem = null;
+      statMem = null; finalizing = false; prog = {};
       aw(async () => { await clearStage(round, s); await db.update(P('game'), { status: 'intro', startAt: null, greenAt: null }); });
     };
     $('bFinal').onclick = () => aw(() => db.update(P('game'), { status: 'final' }));
@@ -345,9 +345,9 @@ label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
         finalizing = true;
         const fin = { startAt: statMem.startAt, endAt: statMem.endAt, t };
         const res = { t: GS.stageResult(cfg, s, fin), at: now };
-        const k = curKey;
+        const k = curKey, sa = statMem.startAt;
         aw(async () => {
-          if (curKey !== k) return;
+          if (curKey !== k || !game || game.startAt !== sa || status() !== 'play') return;   // 中途按了重玩本關就不寫入
           await db.set(P('res/' + round + '/' + s), res);
           await db.update(P('game'), { status: 'result' });
         });
