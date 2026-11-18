@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>極速維修站｜投影</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:block}
+#fs{position:fixed;right:10px;bottom:10px;z-index:5;font:13px sans-serif;color:#fff;background:rgba(255,255,255,.12);border:none;border-radius:8px;padding:6px 10px;cursor:pointer;opacity:.5}
+#fs:hover{opacity:1}
+</style>
+</head>
+<body>
+<canvas id="cv" width="1920" height="1080"></canvas>
+<button id="fs">全螢幕</button>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="core.js"></script>
+<script>
+(async function () {
+  const W = 1920, H = 1080, cv = document.getElementById('cv'), c = cv.getContext('2d');
+  function fit() { const k = Math.min(innerWidth / W, innerHeight / H); cv.style.width = W * k + 'px'; cv.style.height = H * k + 'px'; }
+  addEventListener('resize', fit); fit();
+  document.getElementById('fs').onclick = () => { const d = document.documentElement; (d.requestFullscreen || d.webkitRequestFullscreen || (() => { })).call(d); };
+
+  const db = await GS.ready();
+  const P = s => GS.ROOT + '/' + s;
+  const { clamp, rgba, shade, toArr, TAU, rr } = GS;
+  const ORB = 'Orbitron, "Noto Sans TC", sans-serif', TC = '"Noto Sans TC", "Microsoft JhengHei", sans-serif';
+  const YEL = '#ffd60a', RED = '#ff2d55', GRN = '#2dff8a';
+
+  /* ───── 資料 ───── */
+  let game = {}, cfg = GS.cfgOf(null), round = 0, stat = null, resAll = {}, players = {}, logoImg = null, stKey = '';
+  const subs = {};
+  function resub(k, fn) { if (subs[k]) subs[k](); subs[k] = fn ? fn() : null; }
+  let lastStatus = '', statusAt = performance.now(), disp = [];
+  db.on(P('game'), g => {
+    game = g || {}; cfg = GS.cfgOf(game);
+    const r = game.round || 1;
+    if (r !== round) { round = r; resub('res', () => db.on(P('res/' + r), v => { resAll = v || {}; })); }
+    const s = game.stage == null ? -1 : game.stage, key = r + '_' + s;
+    if (key !== stKey) { stKey = key; stat = null; disp = []; sparks = []; if (s >= 0) resub('stat', () => db.on(P('stat/' + r + '/' + s), v => { stat = v; })); else resub('stat', null); }
+    const st = (game.status || 'lobby') + '_' + s;
+    if (st !== lastStatus) { lastStatus = st; statusAt = performance.now(); if (game.status === 'podium') { confetti = []; } }
+  });
+  db.on(P('players'), v => { players = v || {}; });
+  db.on(P('logo'), v => { if (!v) { logoImg = null; return; } const im = new Image(); im.onload = () => { logoImg = im; }; im.src = v; });
+
+  /* ───── QR code ───── */
+  const base = location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
+  const playerUrl = base + 'index.html?' + (GS.LOCAL_MODE && /local=1/.test(location.search) ? 'local=1&' : '') + 'openExternalBrowser=1';
+  let qrCv = null;
+  try {
+    const q = qrcode(0, 'M'); q.addData(playerUrl); q.make();
+    const n = q.getModuleCount(), cell = Math.floor(360 / (n + 8)), size = cell * (n + 8);
+    qrCv = document.createElement('canvas'); qrCv.width = qrCv.height = size;
+    const qc = qrCv.getContext('2d'); qc.fillStyle = '#fff'; qc.fillRect(0, 0, size, size); qc.fillStyle = '#000';
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (q.isDark(y, x)) qc.fillRect((x + 4) * cell, (y + 4) * cell, cell, cell);
+  } catch (e) { qrCv = null; }
+
+  /* ───── 繪圖工具 ───── */
+  function T(str, x, y, size, col, align, weight, font, base) {
+    c.font = `${weight || 900} ${size}px ${font || TC}`; c.fillStyle = col || '#fff';
+    c.textAlign = align || 'left'; c.textBaseline = base || 'middle'; c.fillText(str, x, y);
+  }
+  function TW(str, size, weight, font) { c.font = `${weight || 900} ${size}px ${font || TC}`; return c.measureText(str).width; }
+  const now = () => db.now();
+  const ease = t => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+  const back = t => { t = clamp(t, 0, 1); const s = 1.7; return 1 + (s + 1) * Math.pow(t - 1, 3) + s * Math.pow(t - 1, 2); };
+
+  /* 背景（預先畫好） */
+  const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
+  (function () {
+    const b = bg.getContext('2d');
+    const g = b.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#16131f'); g.addColorStop(1, '#07060b'); b.fillStyle = g; b.fillRect(0, 0, W, H);
+    b.strokeStyle = 'rgba(255,255,255,.035)'; b.lineWidth = 2;
+    for (let x = 0; x < W; x += 80) { b.beginPath(); b.moveTo(x, 0); b.lineTo(x, H); b.stroke(); }
+    for (let y = 0; y < H; y += 80) { b.beginPath(); b.moveTo(0, y); b.lineTo(W, y); b.stroke(); }
+    const v = b.createRadialGradient(W / 2, H / 2, 300, W / 2, H / 2, 1200); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.7)'); b.fillStyle = v; b.fillRect(0, 0, W, H);
+  })();
+  function hazard(y, h) {
+    c.save(); c.beginPath(); c.rect(0, y, W, h); c.clip();
+    c.fillStyle = '#111'; c.fillRect(0, y, W, h); c.fillStyle = YEL;
+    for (let x = -h; x < W + h; x += h * 2) { c.beginPath(); c.moveTo(x, y + h); c.lineTo(x + h, y); c.lineTo(x + h * 2, y); c.lineTo(x + h, y + h); c.fill(); }
+    c.restore();
+  }
+
+  function chevron(x, y, sz, col) {
+    c.strokeStyle = col; c.lineWidth = sz * 0.35; c.lineJoin = 'round'; c.lineCap = 'round';
+    for (let q = 0; q < 2; q++) { c.beginPath(); c.moveTo(x - sz, y + q * sz * 0.8 + sz * 0.5); c.lineTo(x, y + q * sz * 0.8 - sz * 0.4); c.lineTo(x + sz, y + q * sz * 0.8 + sz * 0.5); c.stroke(); }
+    c.lineCap = 'butt';
+  }
+  /* ───── 粒子 ───── */
+  let sparks = [], confetti = [];
+  function spark(x, y, col, n, spd) {
+    for (let k = 0; k < n; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2; const v = (spd || 6) * (0.5 + Math.random()); sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, l: 1, col: col || YEL }); }
+    if (sparks.length > 500) sparks.splice(0, sparks.length - 500);
+  }
+  function drawSparks(dt) {
+    for (const p of sparks) { p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.vy += 0.35 * dt * 60; p.l -= dt * 1.6; }
+    sparks = sparks.filter(p => p.l > 0);
+    for (const p of sparks) { c.globalAlpha = clamp(p.l, 0, 1); c.fillStyle = p.col; c.fillRect(p.x - 2, p.y - 2, 4, 4); }
+    c.globalAlpha = 1;
+  }
+
+  /* ───── 標頭 ───── */
+  function drawHeader(s, t) {
+    c.fillStyle = 'rgba(8,7,12,.9)'; c.fillRect(0, 0, W, 140); hazard(140, 12);
+    if (logoImg) { const k = Math.min(260 / logoImg.width, 90 / logoImg.height); c.drawImage(logoImg, 40, 70 - logoImg.height * k / 2, logoImg.width * k, logoImg.height * k); }
+    else { T(cfg.brand, 40, 50, 26, YEL, 'left', 900, ORB); T(cfg.title, 40, 96, 42, '#fff', 'left', 900); }
+    /* 關卡燈 */
+    const cx = W / 2, gap = 170;
+    GS.STAGES.forEach((S, i) => {
+      const x = cx + (i - 1.5) * gap, on = i === s, done = !!resAll[i];
+      if (i < 3) { c.strokeStyle = done ? YEL : 'rgba(255,255,255,.2)'; c.lineWidth = 4; c.beginPath(); c.moveTo(x + 34, 58); c.lineTo(x + gap - 34, 58); c.stroke(); }
+      c.fillStyle = on ? YEL : done ? '#3a3220' : '#1d1b26'; c.strokeStyle = on ? '#fff' : done ? YEL : 'rgba(255,255,255,.25)'; c.lineWidth = 3;
+      c.beginPath(); c.arc(x, 58, on ? 32 : 26, 0, TAU); c.fill(); c.stroke();
+      T(String(i + 1), x, 60, on ? 30 : 24, on ? '#1a1200' : done ? YEL : '#aaa', 'center', 900, ORB);
+      T(S.name, x, 114, on ? 28 : 22, on ? '#fff' : done ? '#e9d79a' : '#8a8798', 'center', on ? 900 : 700);
+    });
+    if (t) t();
+  }
+
+  /* ───── 單一維修車格 ───── */
+  function rowGeom(i, n) {
+    const top = 178, bottom = 1060, gap = n > 5 ? 8 : 14, h = (bottom - top - gap * (n - 1)) / n;
+    return { y: top + i * (h + gap), h };
+  }
+  function stageRank(st, i) {
+    const t = toArr(st && st.t); const d = t[i] && t[i].d; if (!d) return 0;
+    return 1 + t.filter((x, k) => k !== i && x && x.d && (x.d < d || (x.d === d && k < i))).length;
+  }
+  function drawRow(i, n, s, ph, nowT, dt) {
+    const team = GS.team(cfg, i), { y, h } = rowGeom(i, n), col = team.c;
+    const st = toArr(stat && stat.t)[i] || { p: 0, v: 0, n: 0 };
+    const D = disp[i] || (disp[i] = { p: 0, v: 0, act: 0, lastP: 0, lastV: 0, k: 0, x: 0 });
+    /* 平滑 */
+    const tp = st.p || 0, tv = st.v || 0;
+    D.p += (tp - D.p) * clamp(dt * 6, 0, 1); D.v += (tv - D.v) * clamp(dt * 6, 0, 1);
+    const rate = s < 3 ? Math.max(0, D.p - D.lastP) / Math.max(dt, 1e-3) : Math.max(0, D.v - D.lastV) / Math.max(dt, 1e-3);
+    D.act += ((s < 3 ? rate * 12 : rate / 6) - D.act) * clamp(dt * 4, 0, 1); D.act = clamp(D.act, 0, 1.5);
+    D.lastP = D.p; D.lastV = D.v;
+    const done = s < 3 && !!st.d;
+    /* 格子背景 */
+    c.fillStyle = '#121019'; rr(c, 24, y, W - 48, h, 14); c.fill();
+    const fg = c.createLinearGradient(0, y, 0, y + h); fg.addColorStop(0, 'rgba(255,255,255,.02)'); fg.addColorStop(1, rgba(col, 0.12)); c.fillStyle = fg; rr(c, 24, y, W - 48, h, 14); c.fill();
+    c.fillStyle = col; rr(c, 24, y, 16, h, 8); c.fill();
+    /* 地面線與車格框 */
+    const ground = y + h - 26, k = clamp(h / 230, 0.42, 0.9);
+    c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 2; c.beginPath(); c.moveTo(380, ground + 2); c.lineTo(1500, ground + 2); c.stroke();
+    if (s < 3) { c.setLineDash([18, 12]); c.strokeStyle = rgba(YEL, 0.45); c.lineWidth = 3; rr(c, 560, y + 14, 520, h - 30, 6); c.stroke(); c.setLineDash([]); }
+    /* 左側隊名 */
+    const nameSize = clamp(h * 0.26, 24, 54);
+    T(team.n, 66, y + h * 0.42, nameSize, '#fff', 'left', 900);
+    T(`${st.n || aliveCnt[i] || 0} 人`, 66, y + h * 0.42 + nameSize * 0.85, clamp(h * 0.12, 14, 24), '#a9a6b8', 'left', 700);
+    /* 車子 */
+    let cx = 820, lift = 0, opt = { num: i + 1 }, work = null, fuelNozzle = null;
+    const spinBase = (performance.now() / 1000);
+    if (s === 0) {
+      lift = 46 * ease(D.p);
+      // 千斤頂
+      const jx = cx - 10 * k, top = ground - (lift + 22) * k;
+      c.fillStyle = '#2b2a33'; rr(c, jx - 70 * k, ground - 14 * k, 140 * k, 14 * k, 4 * k); c.fill();
+      c.fillStyle = YEL; c.fillRect(jx - 10 * k, top, 20 * k, ground - 14 * k - top);
+      c.fillStyle = '#e0b400'; c.fillRect(jx - 26 * k, top - 6 * k, 52 * k, 8 * k);
+      if (D.act > 0.1 && !done) {
+        const ph2 = (performance.now() / 400) % 1;
+        c.globalAlpha = clamp(D.act, 0, 1) * (1 - ph2);
+        for (const ax of [cx - 230 * k, cx + 230 * k]) chevron(ax, ground - (40 + ph2 * 60) * k, 22 * k, YEL);
+        c.globalAlpha = 1;
+      }
+      opt.rear = 'old'; opt.front = 'old';
+    } else if (s === 1) {
+      lift = 46;
+      const kDone = Math.min(4, Math.floor(D.p * 4 + 1e-6)), cur = done ? -1 : kDone;
+      opt.rear = (cur === 0 || cur === 2) ? 'off' : (kDone >= 1 ? 'new' : 'old');
+      opt.front = (cur === 1 || cur === 3) ? 'off' : (kDone >= 2 ? 'new' : 'old');
+      if (kDone >= 3 && cur !== 2) opt.rear = 'new'; if (kDone >= 4) opt.front = 'new';
+      // 千斤頂（頂著）
+      const top = ground - (lift + 22) * k;
+      c.fillStyle = '#2b2a33'; rr(c, cx - 80 * k, ground - 14 * k, 140 * k, 14 * k, 4 * k); c.fill();
+      c.fillStyle = YEL; c.fillRect(cx - 20 * k, top, 20 * k, ground - 14 * k - top);
+      // 正在換的輪胎：往外拉出、高速轉
+      if (cur >= 0) {
+        const isRear = cur === 0 || cur === 2, wx = cx + (isRear ? -95 : 98) * k, wy = ground - (lift + 34) * k;
+        const frac = D.p * 4 - kDone, off = (1 - Math.abs(frac * 2 - 1)) * 40 * k;   // 拆下→裝上
+        work = { x: wx + (isRear ? -off : off), y: wy + off * 0.5, kind: frac < 0.5 ? 'old' : 'new', gx: wx, gy: wy };
+      }
+      // 4 顆輪胎進度
+      for (let q = 0; q < 4; q++) {
+        const tx = 1120 + q * 58, ty = y + h * 0.32, r = clamp(h * 0.1, 12, 22);
+        const isDone = q < kDone, isCur = q === cur;
+        c.fillStyle = isDone ? '#0b0b0f' : '#2a2933'; c.beginPath(); c.arc(tx, ty, r, 0, TAU); c.fill();
+        c.strokeStyle = isDone ? col : isCur ? YEL : '#555'; c.lineWidth = 4; c.beginPath(); c.arc(tx, ty, r * 0.62, 0, TAU); c.stroke();
+        if (isCur) { c.strokeStyle = rgba(YEL, 0.5 + 0.5 * Math.sin(performance.now() / 90)); c.lineWidth = 3; c.beginPath(); c.arc(tx, ty, r + 5, 0, TAU); c.stroke(); }
+      }
+      T('TIRES', 1120 - 26, y + h * 0.32 + clamp(h * 0.1, 12, 22) + 18, 14, '#8c8999', 'left', 700, ORB);
+    } else if (s === 2) {
+      lift = 0;
+      // 加油機：立柱＋懸吊油管接到側箱
+      const rigX = 620, rigTop = y + 16, nx = cx - 40 * k, ny = ground - 62 * k;
+      c.fillStyle = '#24232c'; rr(c, rigX - 16, rigTop, 32, ground - rigTop, 6); c.fill();
+      c.fillStyle = YEL; rr(c, rigX - 26, rigTop, 52, 26, 6); c.fill();
+      T('FUEL', rigX, rigTop + 14, 13, '#111', 'center', 900, ORB);
+      const hx0 = rigX + 16, hy0 = rigTop + 40, mx1 = hx0 + 60, my1 = ny + 40 * k, mx2 = nx - 90 * k, my2 = ny - 70 * k;
+      c.lineCap = 'round';
+      c.strokeStyle = '#0d0d12'; c.lineWidth = 13 * k + 2; c.beginPath(); c.moveTo(hx0, hy0); c.bezierCurveTo(mx1, my1, mx2, my2, nx, ny); c.stroke();
+      c.strokeStyle = '#45444f'; c.lineWidth = 8 * k; c.stroke(); c.lineCap = 'butt';
+      if (D.act > 0.05 && !done) {
+        const tt = performance.now() / 1000;
+        for (let q = 0; q < 7; q++) {
+          const u = ((tt * 1.3 + q / 7) % 1), w0 = (1 - u) ** 3, w1 = 3 * (1 - u) ** 2 * u, w2 = 3 * (1 - u) * u * u, w3 = u ** 3;
+          c.fillStyle = rgba(YEL, clamp(D.act, 0, 1)); c.beginPath(); c.arc(w0 * hx0 + w1 * mx1 + w2 * mx2 + w3 * nx, w0 * hy0 + w1 * my1 + w2 * my2 + w3 * ny, 5 * k, 0, TAU); c.fill();
+        }
+      }
+      fuelNozzle = { x: nx, y: ny };
+      // 油表
+      const gx = 1150, gy = y + 18, gh = h - 44, gw = 54;
+      c.fillStyle = '#0b0a10'; rr(c, gx, gy, gw, gh, 10); c.fill();
+      const fh = (gh - 8) * D.p;
+      const lg = c.createLinearGradient(0, gy + gh, 0, gy); lg.addColorStop(0, shade(col, -0.2)); lg.addColorStop(1, shade(col, 0.25));
+      c.fillStyle = lg; rr(c, gx + 4, gy + gh - 4 - fh, gw - 8, Math.max(0, fh), 7); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.3)'; c.lineWidth = 2; rr(c, gx, gy, gw, gh, 10); c.stroke();
+      for (let q = 1; q < 4; q++) { c.fillStyle = 'rgba(255,255,255,.25)'; c.fillRect(gx + gw - 14, gy + gh * q / 4, 10, 2); }
+      T('FUEL', gx + gw + 12, gy + 16, 16, '#8c8999', 'left', 700, ORB);
+      opt.rear = 'new'; opt.front = 'new';
+    } else if (s === 3) {
+      const gA = game.greenAt || Infinity, f = clamp((nowT - gA) / (cfg.win4 * 1000), 0, 1);
+      const vLead = Math.max(0.01, ...toArr(stat && stat.t).map(x => (x && x.v) || 0));
+      const x0 = 520, x1 = 1380;
+      const target = nowT < gA ? x0 : x0 + (x1 - x0) * f * clamp(D.v / vLead, 0, 1);
+      D.x = D.x ? D.x + (target - D.x) * clamp(dt * 5, 0, 1) : x0;
+      cx = D.x; opt.flame = nowT >= gA ? clamp(D.act, 0, 1) : 0; opt.spin = (D.x - x0) / (34 * k); opt.rear = 'new'; opt.front = 'new';
+      // 出站線
+      c.fillStyle = '#fff'; for (let q = 0; q < 6; q++) c.fillRect(1460, y + 12 + q * (h - 24) / 6, 10, (h - 24) / 12);
+      c.fillStyle = 'rgba(255,255,255,.08)'; c.fillRect(x0 - 180 * k, ground - 2, 6, -(h - 40));
+    }
+    if (s !== 3) opt.spin = 0;
+    GS.drawCar(c, cx, ground, k, col, Object.assign(opt, { lift }));
+    if (fuelNozzle) { c.fillStyle = '#16151c'; rr(c, fuelNozzle.x - 14 * k, fuelNozzle.y - 10 * k, 30 * k, 20 * k, 5 * k); c.fill(); c.fillStyle = YEL; c.fillRect(fuelNozzle.x - 4 * k, fuelNozzle.y - 14 * k, 8 * k, 6 * k); }
+    if (work) {
+      GS.wheel(c, work.x, work.y, 34 * k, work.kind, spinBase * (D.act > 0.1 ? 40 : 2), col);
+      // 氣動扳手
+      c.fillStyle = '#2b2a33'; rr(c, work.x - 8 * k, work.y - 70 * k, 16 * k, 46 * k, 4 * k); c.fill();
+      c.fillStyle = YEL; rr(c, work.x - 12 * k, work.y - 88 * k, 24 * k, 22 * k, 5 * k); c.fill();
+      if (D.act > 0.2 && Math.random() < 0.5) spark(work.x, work.y - 20 * k, Math.random() < 0.5 ? YEL : '#fff', 1, 3.5);
+    }
+    /* 出力表（搖晃關） */
+    if (s < 2 && !done) {
+      const mx = 1360, my = y + h * 0.18, mh = h * 0.56, lit = Math.round(clamp(D.act / 2, 0, 1) * 8);
+      for (let q = 0; q < 8; q++) {
+        const bh = mh / 8 - 4, by2 = my + mh - (q + 1) * (mh / 8);
+        c.fillStyle = q < lit ? (q >= 6 ? RED : q >= 4 ? YEL : GRN) : 'rgba(255,255,255,.07)';
+        c.fillRect(mx, by2, 54, bh);
+      }
+      T('POWER', mx + 27, my + mh + 16, 14, '#8c8999', 'center', 700, ORB);
+    }
+    /* 右側數據 */
+    const rx = W - 70;
+    if (s < 3) {
+      if (done) {
+        const rk = stageRank(stat, i), tsec = (st.d - stat.startAt) / 1000;
+        const pulse = 1 + 0.06 * Math.sin(performance.now() / 160);
+        c.fillStyle = rk === 1 ? YEL : rk === 2 ? '#cfd6e6' : rk === 3 ? '#e09a5a' : '#8a8a96';
+        c.beginPath(); c.arc(rx - 250, y + h / 2, clamp(h * 0.26, 20, 46) * pulse, 0, TAU); c.fill();
+        T(String(rk), rx - 250, y + h / 2 + 2, clamp(h * 0.26, 20, 46), '#111', 'center', 900, ORB);
+        T(GS.fmtT(tsec), rx, y + h * 0.42, clamp(h * 0.3, 26, 64), '#fff', 'right', 900, ORB);
+        T('✔ 完成', rx, y + h * 0.42 + clamp(h * 0.3, 26, 64) * 0.8, clamp(h * 0.13, 14, 26), GRN, 'right', 900);
+      } else {
+        T(Math.floor(D.p * 100) + '%', rx, y + h * 0.45, clamp(h * 0.34, 28, 72), '#fff', 'right', 900, ORB);
+        if (s === 1) T(`第 ${Math.min(4, Math.floor(D.p * 4) + 1)} 顆輪胎`, rx, y + h * 0.45 + clamp(h * 0.34, 28, 72) * 0.72, clamp(h * 0.12, 14, 24), '#c9c4d6', 'right', 700);
+      }
+    } else {
+      T(D.v.toFixed(1), rx - 70, y + h * 0.45, clamp(h * 0.34, 28, 72), '#fff', 'right', 900, ORB);
+      T('下/人', rx, y + h * 0.45 + 8, clamp(h * 0.12, 14, 24), '#c9c4d6', 'right', 700);
+    }
+    /* 底部進度條 */
+    if (s < 3) {
+      const bx = 66, by = y + h - 12, bw = W - 132;
+      c.fillStyle = 'rgba(255,255,255,.07)'; c.fillRect(bx, by, bw, 6);
+      c.fillStyle = col; c.fillRect(bx, by, bw * D.p, 6);
+    }
+    if (done && !D.doneFx) { D.doneFx = true; for (let q = 0; q < 30; q++) spark(820, ground - 60 * k, q % 2 ? col : YEL, 1, 9); }
+  }
+
+  /* ───── 主畫面：維修區 ───── */
+  let aliveCnt = [];
+  function drawPit(s, ph, nowT, dt) {
+    const n = cfg.teams.length;
+    aliveCnt = new Array(n).fill(0);
+    for (const k in players) { const p = players[k]; if (p && typeof p.tm === 'number' && p.tm < n && (p.bot || nowT - (p.hb || 0) < GS.ALIVE_MS)) aliveCnt[p.tm]++; }
+    for (let i = 0; i < n; i++) drawRow(i, n, s, ph, nowT, dt);
+    drawSparks(dt);
+  }
+  function headerTimer(s, nowT) {
+    return () => {
+      const rx = W - 40;
+      if (!stat || (game.status !== 'play')) { if (game.status === 'result') T('RESULT', rx, 70, 40, YEL, 'right', 900, ORB); return; }
+      if (s < 3) {
+        if (nowT < stat.startAt) { T('READY', rx, 70, 44, YEL, 'right', 900, ORB); return; }
+        const el = Math.max(0, (Math.min(nowT, stat.endAt) - stat.startAt) / 1000);
+        if (stat.firstAt && nowT < stat.endAt) {
+          const left = Math.max(0, Math.ceil((stat.endAt - nowT) / 1000));
+          T('最後', rx - 150, 70, 30, RED, 'right', 900);
+          T(String(left), rx, 70, 80, RED, 'right', 900, ORB);
+        } else T(el.toFixed(1), rx, 70, 64, '#fff', 'right', 900, ORB);
+      } else {
+        const gA = game.greenAt || Infinity;
+        if (nowT < gA) T('READY', rx, 70, 44, RED, 'right', 900, ORB);
+        else { const left = Math.max(0, (gA + cfg.win4 * 1000 - nowT) / 1000); T(left.toFixed(1), rx, 70, 64, GRN, 'right', 900, ORB); }
+      }
+    };
+  }
+  /* 倒數 3‧2‧1‧GO */
+  function drawCountdown(nowT) {
+    if (!game.startAt) return;
+    const d = game.startAt - nowT;
+    if (d > 3200 || d < -900) return;
+    const label = d > 0 ? String(Math.ceil(d / 1000)) : 'GO!';
+    const frac = d > 0 ? 1 - ((d / 1000) % 1) : clamp(-d / 900, 0, 1);
+    c.fillStyle = `rgba(0,0,0,${d > 0 ? 0.45 : 0.45 * (1 - frac)})`; c.fillRect(0, 152, W, H - 152);
+    c.save(); c.translate(W / 2, H / 2 + 40); const sc = d > 0 ? 1.6 - 0.6 * ease(frac * 3) : 1 + frac * 0.5; c.scale(sc, sc);
+    c.globalAlpha = d > 0 ? 1 : 1 - frac;
+    T(label, 0, 0, 260, d > 0 ? '#fff' : GRN, 'center', 900, ORB);
+    c.restore(); c.globalAlpha = 1;
+  }
+  /* 出站紅綠燈 */
+  function drawLights(nowT) {
+    if (!game.startAt) return;
+    const gA = game.greenAt || Infinity;
+    if (nowT > gA + 1600) return;
+    const lit = clamp(Math.floor((nowT - game.startAt) / GS.LIGHT_MS) + 1, 0, 5), green = nowT >= gA;
+    const bw = 820, bh = 210, bx = (W - bw) / 2, by = 360;
+    c.fillStyle = 'rgba(0,0,0,.5)'; c.fillRect(0, 152, W, H - 152);
+    c.fillStyle = '#0b0b10'; rr(c, bx, by, bw, bh, 26); c.fill(); c.strokeStyle = '#333'; c.lineWidth = 4; rr(c, bx, by, bw, bh, 26); c.stroke();
+    for (let q = 0; q < 5; q++) {
+      const lx = bx + 92 + q * 159, ly = by + bh / 2, on = green || q < lit;
+      const colr = green ? GRN : RED;
+      c.fillStyle = '#1a1a22'; c.beginPath(); c.arc(lx, ly, 62, 0, TAU); c.fill();
+      if (on) { c.shadowColor = colr; c.shadowBlur = 50; c.fillStyle = colr; c.beginPath(); c.arc(lx, ly, 54, 0, TAU); c.fill(); c.shadowBlur = 0; }
+    }
+    T(green ? 'GO！狂搖！' : (nowT < game.startAt ? '準備出站…' : '等綠燈…先別搖！'), W / 2, by + bh + 90, green ? 110 : 64, green ? GRN : '#fff', 'center', 900);
+  }
+
+  /* ───── 說明畫面 ───── */
+  function drawPhoneIcon(x, y, sz, mode, tt) {
+    c.save(); c.translate(x, y);
+    if (mode === 'shake' || mode === 'burst') c.rotate(Math.sin(tt * 18) * 0.28);
+    c.fillStyle = '#fff'; rr(c, -sz * 0.3, -sz * 0.55, sz * 0.6, sz * 1.1, sz * 0.09); c.fill();
+    c.fillStyle = '#26242f'; rr(c, -sz * 0.25, -sz * 0.45, sz * 0.5, sz * 0.84, sz * 0.03); c.fill();
+    if (mode === 'steady') { c.fillStyle = YEL; c.beginPath(); c.moveTo(0, -sz * 0.25); c.bezierCurveTo(sz * 0.18, 0, sz * 0.16, sz * 0.2, 0, sz * 0.2); c.bezierCurveTo(-sz * 0.16, sz * 0.2, -sz * 0.18, 0, 0, -sz * 0.25); c.fill(); }
+    else if (mode === 'burst') { [RED, RED, GRN].forEach((cc, q) => { c.fillStyle = cc; c.beginPath(); c.arc(0, -sz * 0.27 + q * sz * 0.27, sz * 0.1, 0, TAU); c.fill(); }); }
+    else { c.fillStyle = YEL; T('⇅', 0, 0, sz * 0.4, YEL, 'center'); }
+    c.restore();
+    if (mode === 'shake' || mode === 'burst') {
+      c.strokeStyle = rgba('#ffffff', 0.6); c.lineWidth = 6;
+      for (const sd of [-1, 1]) for (let q = 0; q < 2; q++) { c.beginPath(); c.arc(x, y, sz * (0.75 + q * 0.2), sd > 0 ? -0.5 : Math.PI - 0.5, sd > 0 ? 0.5 : Math.PI + 0.5); c.stroke(); }
+    } else { c.strokeStyle = GRN; c.lineWidth = 6; c.beginPath(); c.moveTo(x - sz * 0.6, y + sz * 0.75); c.lineTo(x + sz * 0.6, y + sz * 0.75); c.stroke(); }
+  }
+  function drawIntro(s, t) {
+    const S = GS.STAGES[s], a = ease(t * 2.5);
+    c.fillStyle = `rgba(5,4,8,${0.78 * a})`; c.fillRect(0, 152, W, H - 152);
+    c.save(); c.globalAlpha = a; c.translate(0, (1 - a) * 40);
+    const pw = 1400, ph = 640, px = (W - pw) / 2, py = 250;
+    c.fillStyle = 'rgba(20,18,28,.96)'; rr(c, px, py, pw, ph, 30); c.fill(); c.strokeStyle = rgba(YEL, 0.6); c.lineWidth = 3; rr(c, px, py, pw, ph, 30); c.stroke();
+    c.save(); c.beginPath(); rr(c, px, py, pw, 16, 8); c.clip(); hazard(py, 16); c.restore();
+    T(`STAGE ${S.no} / 4  ・  ${S.en}`, px + 90, py + 110, 34, YEL, 'left', 900, ORB);
+    T(S.name, px + 86, py + 250, 170, '#fff', 'left', 900);
+    T(S.tip, px + 90, py + 400, 50, '#fff', 'left', 900);
+    const sub = S.act === 'steady' ? '手機要直立拿著，平放在桌上不算喔' : S.act === 'burst' ? `綠燈亮起後 ${cfg.win4} 秒，比全隊人均搖幾下` : (s === 0 ? `每人平均搖 ${cfg.need1} 下就能把車頂起來` : `每人平均搖 ${cfg.need2} 下換完 4 顆輪胎`);
+    T(sub, px + 90, py + 480, 34, '#b9b4c8', 'left', 700);
+    T(s < 3 ? `計分：第一名 10 分，每慢 1 秒少 1 分` : '計分：第一名 10 分，其他隊依下數比例給分', px + 90, py + 560, 28, '#8f8aa0', 'left', 700);
+    drawPhoneIcon(px + pw - 250, py + 320, 230, S.act, performance.now() / 1000);
+    c.restore();
+  }
+
+  /* ───── 本關結算 ───── */
+  function drawResult(s, t) {
+    const R = resAll[s] && toArr(resAll[s].t); if (!R) return;
+    const S = GS.STAGES[s], tot = GS.totals(cfg, resAll), n = R.length, a = ease(t * 2);
+    c.fillStyle = `rgba(5,4,8,${0.78 * a})`; c.fillRect(0, 152, W, H - 152);
+    const rh = Math.min(110, 620 / n), pw = 1500, ph = 190 + rh * n, px = (W - pw) / 2, py = 170 + (880 - ph) / 2;
+    c.save(); c.globalAlpha = a;
+    c.fillStyle = 'rgba(20,18,28,.97)'; rr(c, px, py, pw, ph, 28); c.fill(); c.strokeStyle = rgba(YEL, 0.6); c.lineWidth = 3; rr(c, px, py, pw, ph, 28); c.stroke();
+    T(`STAGE ${S.no}  ${S.name} 結果`, px + 60, py + 70, 54, '#fff', 'left', 900);
+    T(s < 3 ? '第一名 10 分・每慢 1 秒少 1 分' : '第一名 10 分・依下數比例給分', px + pw - 60, py + 74, 26, '#9d98ad', 'right', 700);
+    T('本關', px + pw - 420, py + 140, 22, '#8f8aa0', 'center', 700); T('總分', px + pw - 150, py + 140, 22, '#8f8aa0', 'center', 700);
+    const ord = R.map((x, i) => i).sort((x, y) => R[x].rank - R[y].rank);
+    ord.forEach((i, k) => {
+      const r = R[i], tm = GS.team(cfg, i), yy = py + 170 + k * rh, ap = ease((t - 0.25 - (n - 1 - k) * 0.18) * 3);
+      if (ap <= 0) return;
+      c.save(); c.globalAlpha = a * ap; c.translate((1 - ap) * 80, 0);
+      c.fillStyle = k % 2 ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.06)'; rr(c, px + 30, yy, pw - 60, rh - 10, 14); c.fill();
+      const cy = yy + (rh - 10) / 2, fs = Math.min(46, rh * 0.45);
+      const mc = r.rank === 1 ? YEL : r.rank === 2 ? '#cfd6e6' : r.rank === 3 ? '#e09a5a' : '#6d6a7a';
+      c.fillStyle = mc; c.beginPath(); c.arc(px + 100, cy, fs * 0.75, 0, TAU); c.fill(); T(String(r.rank), px + 100, cy + 2, fs, '#111', 'center', 900, ORB);
+      c.fillStyle = tm.c; rr(c, px + 170, cy - fs * 0.5, 16, fs, 6); c.fill();
+      T(tm.n, px + 204, cy, fs, '#fff', 'left', 900);
+      const val = s < 3 ? GS.fmtT(r.time) + (r.done ? '' : '*') : r.v + ' 下/人';
+      T(val, px + 820, cy, fs, '#fff', 'right', 900, ORB);
+      T('+' + r.pts, px + pw - 420, cy, fs * 1.15, YEL, 'center', 900, ORB);
+      T(String(tot.list[i].pts), px + pw - 150, cy, fs * 1.15, '#fff', 'center', 900, ORB);
+      c.restore();
+    });
+    if (s < 3 && R.some(r => !r.done)) T('* 時間到沒完成，依當時進度推算時間', px + 60, py + ph - 28, 22, '#8f8aa0', 'left', 700);
+    c.restore();
+  }
+
+  /* ───── 總排名 ───── */
+  function drawFinal(t) {
+    const tot = GS.totals(cfg, resAll), n = cfg.teams.length;
+    T('總排名', W / 2, 250, 96, '#fff', 'center', 900); T('FINAL STANDINGS', W / 2, 330, 32, YEL, 'center', 900, ORB);
+    const rh = Math.min(120, 600 / n), pw = 1600, px = (W - pw) / 2, py = 400;
+    const cols = [px + 760, px + 920, px + 1080, px + 1240], cx = px + pw - 110;
+    GS.STAGES.forEach((S, k) => T(S.name, cols[k], py - 24, 26, '#8f8aa0', 'center', 700)); T('總分', cx, py - 24, 26, '#8f8aa0', 'center', 700);
+    const ties = {};
+    tot.order.forEach(i => { const p = tot.list[i].pts; ties[p] = (ties[p] || 0) + 1; });
+    tot.order.forEach((i, k) => {
+      const o = tot.list[i], tm = GS.team(cfg, i), yy = py + k * rh, ap = ease((t - 0.3 - (n - 1 - k) * 0.35) * 2.5);
+      if (ap <= 0) return;
+      c.save(); c.globalAlpha = ap; c.translate(0, (1 - ap) * 60);
+      c.fillStyle = k === 0 ? rgba(YEL, 0.14) : 'rgba(255,255,255,.05)'; rr(c, px, yy, pw, rh - 12, 16); c.fill();
+      const cy = yy + (rh - 12) / 2, fs = Math.min(50, rh * 0.45);
+      T(String(o.rank), px + 70, cy, fs * 1.1, k === 0 ? YEL : '#fff', 'center', 900, ORB);
+      c.fillStyle = tm.c; rr(c, px + 140, cy - fs * 0.5, 18, fs, 6); c.fill();
+      T(tm.n, px + 180, cy, fs, '#fff', 'left', 900);
+      o.st.forEach((v, q) => T(v == null ? '-' : String(v), cols[q], cy, fs * 0.8, '#d8d4e4', 'center', 700, ORB));
+      T(String(o.pts), cx, cy, fs * 1.2, YEL, 'center', 900, ORB);
+      if (ties[o.pts] > 1) T(`同分比時間 ${o.time.toFixed(1)}s`, px + 560, cy, 22, '#9d98ad', 'right', 700);
+      c.restore();
+    });
+  }
+
+  /* ───── 頒獎台 ───── */
+  function drawPodium(t, dt) {
+    const tot = GS.totals(cfg, resAll), ord = tot.order;
+    // 探照燈
+    c.save(); c.globalCompositeOperation = 'lighter';
+    for (let q = 0; q < 4; q++) {
+      const ang = Math.sin(t * 0.7 + q * 1.7) * 0.35, sx = 260 + q * 470;
+      const g = c.createLinearGradient(sx, 150, sx, H); g.addColorStop(0, 'rgba(255,240,180,.22)'); g.addColorStop(1, 'rgba(255,240,180,0)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(sx, 150); c.lineTo(sx + Math.sin(ang) * 900 - 160, H); c.lineTo(sx + Math.sin(ang) * 900 + 160, H); c.fill();
+    }
+    c.restore();
+    const slots = [{ r: 1, x: W / 2, h: 360, at: 3.4 }, { r: 2, x: W / 2 - 520, h: 270, at: 1.9 }, { r: 3, x: W / 2 + 520, h: 215, at: 0.6 }];
+    const floor = 1000;
+    c.fillStyle = '#0c0b12'; c.fillRect(0, floor, W, H - floor);
+    slots.forEach(sl => {
+      const i = ord[sl.r - 1]; if (i == null) return;
+      const tm = GS.team(cfg, i), o = tot.list[i], a = ease((t - sl.at) * 2);
+      const bw = 440, bh = sl.h * (sl.r === 1 ? 1 : 1), bx = sl.x - bw / 2, by = floor - bh;
+      // 台子
+      const g = c.createLinearGradient(0, by, 0, floor); g.addColorStop(0, sl.r === 1 ? '#f6d36a' : sl.r === 2 ? '#d9dee8' : '#d49a62'); g.addColorStop(1, sl.r === 1 ? '#8c6a12' : sl.r === 2 ? '#6d7381' : '#6b4424');
+      c.fillStyle = g; c.fillRect(bx, by, bw, bh);
+      c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(bx, by, bw, 10);
+      T(sl.r === 1 ? 'WINNER' : sl.r === 2 ? '2ND' : '3RD', sl.x, by + 48, 40, 'rgba(0,0,0,.55)', 'center', 900, ORB);
+      if (a <= 0) return;
+      c.save(); c.globalAlpha = a;
+      // 車子落下
+      const drop = (1 - back(clamp((t - sl.at) * 1.6, 0, 1))) * -300;
+      GS.drawCar(c, sl.x, by + drop, sl.r === 1 ? 1.15 : 0.95, tm.c, { num: sl.r, rear: 'new', front: 'new' });
+      T(tm.n, sl.x, by + (sl.r === 1 ? 135 : 115), sl.r === 1 ? 72 : 54, '#111', 'center', 900);
+      T(o.pts + ' 分', sl.x, by + (sl.r === 1 ? 215 : 175), sl.r === 1 ? 48 : 38, 'rgba(0,0,0,.7)', 'center', 900, ORB);
+      c.restore();
+      if (sl.r === 1 && t > sl.at + 0.6) {
+        const ta = ease((t - sl.at - 0.6) * 2), ty = by - 230 - Math.sin(t * 2) * 8;
+        c.save(); c.globalAlpha = ta; drawTrophy(sl.x, ty, 0.95); c.restore();
+        T('CHAMPION', W / 2, 140, 120 * (0.9 + 0.1 * ta), YEL, 'center', 900, ORB);
+        if (confetti.length < 260 && Math.random() < 0.9) for (let q = 0; q < 4; q++) confetti.push({ x: Math.random() * W, y: -20, vx: (Math.random() - 0.5) * 2, vy: 2 + Math.random() * 3, r: Math.random() * TAU, vr: (Math.random() - 0.5) * 0.3, col: [YEL, RED, '#19e3ff', '#fff', tm.c][q % 5] });
+      }
+    });
+    for (const p of confetti) { p.x += p.vx * dt * 60; p.y += p.vy * dt * 60; p.r += p.vr; }
+    confetti = confetti.filter(p => p.y < H + 20);
+    for (const p of confetti) { c.save(); c.translate(p.x, p.y); c.rotate(p.r); c.fillStyle = p.col; c.fillRect(-7, -4, 14, 8); c.restore(); }
+  }
+  function drawTrophy(x, y, s) {
+    c.save(); c.translate(x, y); c.scale(s, s);
+    c.shadowColor = 'rgba(255,214,10,.8)'; c.shadowBlur = 40;
+    const g = c.createLinearGradient(-60, 0, 60, 0); g.addColorStop(0, '#b8860b'); g.addColorStop(0.5, '#ffe680'); g.addColorStop(1, '#b8860b');
+    c.fillStyle = g;
+    c.beginPath(); c.moveTo(-60, -90); c.lineTo(60, -90); c.quadraticCurveTo(60, 10, 0, 20); c.quadraticCurveTo(-60, 10, -60, -90); c.fill();
+    c.shadowBlur = 0; c.strokeStyle = '#e0b400'; c.lineWidth = 10;
+    c.beginPath(); c.arc(-62, -55, 26, Math.PI * 0.5, Math.PI * 1.5); c.stroke(); c.beginPath(); c.arc(62, -55, 26, -Math.PI * 0.5, Math.PI * 0.5); c.stroke();
+    c.fillStyle = g; c.fillRect(-12, 18, 24, 40); c.fillRect(-50, 56, 100, 22);
+    c.restore();
+  }
+
+  /* ───── 大廳 ───── */
+  function drawLobby(t) {
+    const n = cfg.teams.length, nowT = now(), cnt = new Array(n).fill(0);
+    for (const k in players) { const p = players[k]; if (p && typeof p.tm === 'number' && p.tm < n && (p.bot || nowT - (p.hb || 0) < GS.ALIVE_MS)) cnt[p.tm]++; }
+    hazard(0, 18);
+    if (logoImg) { const k = Math.min(360 / logoImg.width, 120 / logoImg.height); c.drawImage(logoImg, 90, 70, logoImg.width * k, logoImg.height * k); }
+    T(cfg.brand, 96, logoImg ? 240 : 140, 40, YEL, 'left', 900, ORB);
+    T(cfg.title, 90, logoImg ? 340 : 250, 150, '#fff', 'left', 900);
+    T('全隊合力・最快進站', 96, logoImg ? 440 : 370, 44, '#cfc9dc', 'left', 700);
+    // 步驟
+    const steps = ['掃描 QR code', '輸入名字、選桌號', '按「啟用感應」，搖一下測試'];
+    steps.forEach((s, k) => { const yy = 520 + k * 84; c.fillStyle = YEL; c.beginPath(); c.arc(126, yy, 30, 0, TAU); c.fill(); T(String(k + 1), 126, yy + 2, 34, '#111', 'center', 900, ORB); T(s, 180, yy, 42, '#fff', 'left', 700); });
+    T('⚠ 搖的時候握緊手機，手不要甩太開', 96, 800, 34, '#ffb4c2', 'left', 700);
+    // QR
+    const qx = 1360, qy = 120, qs = 440;
+    c.fillStyle = '#fff'; rr(c, qx - 20, qy - 20, qs + 40, qs + 40, 24); c.fill();
+    if (qrCv) c.drawImage(qrCv, qx, qy, qs, qs); else { T('QR code 載入失敗', qx + qs / 2, qy + qs / 2 - 20, 30, '#111', 'center'); T(playerUrl.slice(0, 40), qx + qs / 2, qy + qs / 2 + 30, 18, '#333', 'center', 500); }
+    T('掃我加入維修隊', qx + qs / 2, qy + qs + 70, 44, '#fff', 'center', 900);
+    // 隊伍
+    const cw = Math.min(400, (W - 180 - (n - 1) * 24) / n), y0 = 880;
+    cfg.teams.forEach((tm, i) => {
+      const x = 90 + i * (cw + 24);
+      c.fillStyle = 'rgba(255,255,255,.05)'; rr(c, x, y0, cw, 160, 18); c.fill();
+      c.fillStyle = tm.c; rr(c, x, y0, cw, 14, 7); c.fill();
+      T(tm.n, x + 24, y0 + 60, 40, '#fff', 'left', 900);
+      T(`${tm.tb} 桌`, x + 24, y0 + 112, 26, '#a9a6b8', 'left', 700);
+      T(String(cnt[i]), x + cw - 70, y0 + 86, 64, tm.c, 'right', 900, ORB);
+      T('人', x + cw - 24, y0 + 98, 28, '#cfc9dc', 'right', 700);
+    });
+  }
+
+  /* ───── 主迴圈 ───── */
+  let last = performance.now();
+  function frame(tn) {
+    const dt = Math.min(0.1, (tn - last) / 1000); last = tn;
+    const st = game.status || 'lobby', s = game.stage == null ? -1 : game.stage, nowT = now(), t = (tn - statusAt) / 1000;
+    c.drawImage(bg, 0, 0);
+    if (st === 'lobby' || s < 0 && st !== 'final' && st !== 'podium') drawLobby(t);
+    else if (st === 'final') { drawHeader(4); drawFinal(t); }
+    else if (st === 'podium') drawPodium(t, dt);
+    else {
+      drawHeader(s, headerTimer(s, nowT));
+      drawPit(s, st, nowT, dt);
+      if (st === 'intro') drawIntro(s, t);
+      if (st === 'play') { if (s < 3) drawCountdown(nowT); else drawLights(nowT); }
+      if (st === 'result') drawResult(s, t);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>極速維修站｜後台</title>
+<style>
+:root{--bg:#0d0c14;--card:#16151f;--line:#2a2838;--yel:#ffd60a;--red:#ff2d55;--green:#2dd36f;--cyan:#19c3e6;--mut:#9aa0b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:#eee;font:15px/1.5 'Noto Sans TC','Microsoft JhengHei',sans-serif}
+#login{max-width:340px;margin:16vh auto;background:var(--card);padding:26px;border-radius:16px;border:1px solid var(--line)}
+#login h2{margin-bottom:14px}
+input,select,textarea{font:inherit;color:#fff;background:#0e0d16;border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+button{font:inherit;font-weight:700;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;background:#2a2838;color:#fff}
+button:hover{filter:brightness(1.15)}
+button:disabled{opacity:.35;cursor:not-allowed;filter:none}
+button.yel{background:var(--yel);color:#1a1200}
+button.red{background:var(--red)}
+button.green{background:var(--green);color:#022}
+button.cyan{background:var(--cyan);color:#022}
+button.ghost{background:transparent;border:1px solid var(--line)}
+button.sm{padding:6px 10px;font-size:13px}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:#100f18;position:sticky;top:0;z-index:5}
+header h1{font-size:19px}
+.tag{font-size:12px;padding:3px 10px;border-radius:20px;background:#1e5130}
+.tag.local{background:#7a1830}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--green)}
+.dot.off{background:var(--red)}
+main{max-width:1180px;margin:0 auto;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h3{font-size:15px;margin-bottom:10px;color:var(--yel);letter-spacing:.05em}
+.full{grid-column:1/-1}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#0e0d16;border-radius:10px;padding:10px;text-align:center;color:var(--mut);font-size:13px}
+.stat b{display:block;font-size:24px;color:#fff}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.flow button{padding:14px 8px;font-size:15px}
+.flow .next{outline:3px solid var(--yel);outline-offset:2px}
+.steps{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.steps span{font-size:12px;padding:4px 10px;border-radius:14px;background:#0e0d16;color:var(--mut)}
+.steps span.on{background:var(--yel);color:#1a1200;font-weight:700}
+.steps span.done{background:#1e5130;color:#cfe}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{color:var(--mut);font-weight:500;font-size:12px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.bar{height:8px;border-radius:5px;background:#0e0d16;overflow:hidden;width:120px;display:inline-block;vertical-align:middle;margin-right:6px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--yel),var(--red))}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+.hint{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.6}
+.teamRow{display:grid;grid-template-columns:1.2fr 56px 1.5fr 40px;gap:8px;margin-bottom:8px;align-items:center}
+.teamRow input[type=color]{padding:2px;height:38px}
+.links a{display:block;color:var(--yel);margin:4px 0;word-break:break-all;font-size:14px}
+.saveBar{display:flex;gap:12px;align-items:center;margin-top:12px}
+.warn{color:#ffb4c2}
+.logoBox{display:flex;gap:12px;align-items:center}
+#logoPrev{width:200px;height:80px;border-radius:8px;background:repeating-conic-gradient(#1b1b28 0 25%,#12121c 0 50%) 0 0/16px 16px;display:flex;align-items:center;justify-content:center;color:var(--mut);font-size:12px;overflow:hidden}
+#logoPrev img{max-width:100%;max-height:100%}
+@media (max-width:860px){main{grid-template-columns:1fr}.flow{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="login">
+  <h2>極速維修站｜後台</h2>
+  <input type="password" id="pw" placeholder="請輸入後台密碼">
+  <button class="yel" id="loginBtn" style="width:100%;margin-top:12px">登入</button>
+  <div class="hint warn" id="loginErr"></div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1>🔧 極速維修站 PIT CREW｜後台</h1>
+    <span class="tag" id="modeTag"></span>
+    <span class="dot" id="conn" title="連線狀態"></span>
+    <span style="flex:1"></span>
+    <span class="hint" style="margin:0">⚠ 比賽進行時這個頁面要一直開著（成績由這裡計算）</span>
+  </header>
+  <main>
+    <!-- 現場流程 -->
+    <div class="card full">
+      <h3>① 現場流程</h3>
+      <div class="stats">
+        <div class="stat">局數<b id="sRound">-</b></div>
+        <div class="stat">目前狀態<b id="sStatus" style="font-size:18px">-</b></div>
+        <div class="stat">在線人數<b id="sAlive">0</b></div>
+        <div class="stat">本關剩餘秒數<b id="sLeft">-</b></div>
+      </div>
+      <div class="steps" id="steps"></div>
+      <div class="flow">
+        <button class="yel" id="bIntro">▶ 第 1 關說明</button>
+        <button class="green" id="bStart">🏁 開始本關</button>
+        <button id="bEnd">⏹ 提前結束本關</button>
+        <button id="bRetry">↺ 重玩本關</button>
+        <button class="cyan" id="bFinal">📊 總排名</button>
+        <button class="cyan" id="bPodium">🏆 頒獎台</button>
+        <button class="ghost" id="bLobby">回到大廳</button>
+        <button class="ghost" id="bNew">開新一局</button>
+      </div>
+      <div class="hint" id="flowHint">流程：說明 → 開始 → 自動結算 → 下一關說明 …… → 總排名 → 頒獎台。黃框是建議的下一步。</div>
+    </div>
+
+    <!-- 即時隊伍 -->
+    <div class="card full">
+      <h3>② 隊伍即時狀態</h3>
+      <table><thead><tr><th>隊伍</th><th>在線</th><th>本關進度</th><th>本關成績</th><th>本關得分</th><th>各關得分</th><th>總分</th><th>名次</th></tr></thead><tbody id="tBody"></tbody></table>
+      <div class="hint">人數用「本關開始時的在線人數」計算人均，中途離開的人照樣算在分母。總分同分時比前三關總時間。</div>
+    </div>
+
+    <!-- 連結 -->
+    <div class="card">
+      <h3>③ 頁面連結</h3>
+      <div class="links"><a id="lPlayer" target="_blank"></a><a id="lTv" target="_blank"></a></div>
+      <div class="hint">玩家網址已加上 openExternalBrowser=1（LINE 掃碼會改用手機瀏覽器開啟）。投影頁會自動顯示這個網址的 QR code。</div>
+      <div class="hint" id="localHint"></div>
+    </div>
+
+    <!-- 測試機器人 -->
+    <div class="card">
+      <h3>④ 測試機器人</h3>
+      <div class="grid2">
+        <div><label>每隊加入幾個機器人</label><input type="number" id="botN" value="3" min="1" max="30"></div>
+        <div style="display:flex;gap:8px;align-items:end"><button class="cyan" id="bBot">加入</button><button id="bBotDel">全部移除</button></div>
+      </div>
+      <div class="hint" id="botHint">機器人會自動搖、自動拿穩（偶爾斷油），用來預覽投影畫面。正式活動前記得移除。</div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="card full">
+      <h3>⑤ 遊戲設定 <span class="hint" id="lockHint" style="margin-left:8px"></span></h3>
+      <div class="grid3">
+        <div><label>遊戲名稱（投影大標）</label><input id="cTitle" maxlength="12"></div>
+        <div><label>英文小標</label><input id="cBrand" maxlength="20"></div>
+        <div><label>桌號清單（例如 1-8 或 1-8,VIP）</label><input id="cTables"></div>
+      </div>
+      <div style="margin-top:14px"><label>隊伍（名稱／顏色／包含哪幾桌，用逗號分隔）</label><div id="teams"></div>
+        <button class="sm" id="addTeam">＋ 新增隊伍</button><span class="hint" style="margin-left:8px">最多 8 隊；沒指定到的桌號會依順序輪流分配</span></div>
+      <h3 style="margin-top:18px">關卡參數</h3>
+      <div class="grid3">
+        <div><label>第 1 關 頂車：每人平均要搖幾下</label><input type="number" id="cNeed1"></div>
+        <div><label>第 2 關 換胎：每人平均要搖幾下</label><input type="number" id="cNeed2"></div>
+        <div><label>第 3 關 加油：每人平均要拿穩幾秒</label><input type="number" id="cNeed3"></div>
+        <div><label>第 4 關 出站：綠燈後比幾秒</label><input type="number" id="cWin4"></div>
+        <div><label>第一隊完成後再給幾秒</label><input type="number" id="cGrace"></div>
+        <div><label>每關最長秒數</label><input type="number" id="cMax"></div>
+      </div>
+      <h3 style="margin-top:18px">感應靈敏度（真機實測後再微調）</h3>
+      <div class="grid2" style="grid-template-columns:repeat(4,1fr)">
+        <div><label>搖晃門檻 m/s²（越小越容易算一下）</label><input type="number" step="0.5" id="cTh"></div>
+        <div><label>每人每秒最多算幾下</label><input type="number" id="cRate"></div>
+        <div><label>加油關斷油門檻 m/s²（越小越嚴格）</label><input type="number" step="0.5" id="cWob"></div>
+        <div><label>斷油秒數</label><input type="number" step="0.5" id="cCut"></div>
+      </div>
+      <h3 style="margin-top:18px">Logo（投影左上角／頒獎台）</h3>
+      <div class="logoBox"><div id="logoPrev">尚未上傳</div>
+        <div><button class="cyan sm" id="logoPick">📁 選擇圖片上傳</button> <button class="ghost sm" id="logoDel">移除</button>
+        <div class="hint" id="logoHint">建議去背 PNG、橫式。選好就立即生效。</div></div></div>
+      <input type="file" id="logoFile" accept="image/*" hidden>
+      <div class="saveBar"><button class="yel" id="bSave">💾 儲存設定</button><span class="hint" id="saveHint"></span></div>
+    </div>
+
+    <!-- 重置 -->
+    <div class="card full">
+      <h3>⑥ 全部重置</h3>
+      <label style="display:inline-flex;align-items:center;gap:6px;color:#ddd;font-size:14px"><input type="checkbox" id="rsNames" style="width:auto"> 同時清掉玩家名單（手機會回到登入頁）</label>
+      <div style="margin-top:10px"><button class="red" id="bReset">全部重置</button> <span class="hint">清空所有成績、局數從 1 開始；設定會保留。</span></div>
+    </div>
+  </main>
+</div>
+
+<script src="core.js"></script>
+<script>
+(async function () {
+  /* ⚠ 密碼要跟 database.rules.json 裡的密碼一致 */
+  const ADMIN_PW = 'kuya2026';
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function login() {
+    if ($('pw').value !== ADMIN_PW) { $('loginErr').textContent = '密碼錯誤'; return; }
+    try { sessionStorage.setItem('pc_admin', '1'); } catch (e) { }
+    start();
+  }
+  $('loginBtn').onclick = login;
+  $('pw').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  let ok = false; try { ok = sessionStorage.getItem('pc_admin') === '1'; } catch (e) { }
+  if (ok) start();
+
+  let started = false;
+  async function start() {
+    if (started) return; started = true;
+    $('login').hidden = true; $('app').hidden = false;
+    const db = await GS.ready();
+    const P = s => GS.ROOT + '/' + s;
+
+    $('modeTag').textContent = GS.LOCAL_MODE ? '本機測試模式' : 'Firebase 正式模式';
+    $('modeTag').classList.toggle('local', GS.LOCAL_MODE);
+    const base = location.href.replace(/[?#].*$/, '').replace(/[^/]*$/, '');
+    const lq = GS.LOCAL_MODE && /local=1/.test(location.search) ? 'local=1&' : '';
+    const pUrl = base + 'index.html?' + lq + 'openExternalBrowser=1', tUrl = base + 'tv.html' + (lq ? '?local=1' : '');
+    $('lPlayer').href = pUrl; $('lPlayer').textContent = '📱 玩家端：' + pUrl;
+    $('lTv').href = tUrl; $('lTv').textContent = '🖥 投影端：' + tUrl;
+    if (GS.LOCAL_MODE) $('localHint').innerHTML = '本機測試：同一個瀏覽器開多個分頁會互通。第二位玩家在網址加 <b>&slot=2</b>。電腦上按<b>空白鍵＝搖一下</b>、<b>按住 S＝拿穩</b>。';
+
+    /* 管理寫入：開鎖 → 寫入 → 上鎖（排隊執行） */
+    let q = Promise.resolve();
+    function aw(fn) {
+      const run = q.then(async () => {
+        await db.set(P('lock'), { open: true, pw: ADMIN_PW });
+        try { await fn(); } finally { await db.set(P('lock'), { open: false, pw: ADMIN_PW }); }
+      });
+      q = run.catch(e => { console.error(e); alert('寫入失敗：' + (e && e.message || e)); });
+      return run;
+    }
+
+    let game = null, cfg = GS.cfgOf(null), round = 1, players = {}, prog = {}, resAll = {}, statMem = null, prevP = [];
+    const subs = {};
+    function resub(k, fn) { if (subs[k]) subs[k](); subs[k] = fn ? fn() : null; }
+    db.onConnected(c => $('conn').classList.toggle('off', !c));
+
+    let inited = false, formDirty = false, curKey = '';
+    db.on(P('game'), g => {
+      if (!g && !inited) { inited = true; aw(() => db.set(P('game'), { round: 1, status: 'lobby', stage: -1, cfg: GS.DEFAULT_CFG })); return; }
+      inited = true;
+      game = g || {}; cfg = GS.cfgOf(game);
+      const r = game.round || 1;
+      if (r !== round || !subs.res) { round = r; resub('res', () => db.on(P('res/' + r), v => { resAll = v || {}; render(); })); }
+      const s = game.stage == null ? -1 : game.stage, key = r + '_' + s;
+      if (key !== curKey) {
+        curKey = key; prog = {}; finalizing = false;
+        statMem = null; prevP = [];
+        if (s >= 0) {
+          resub('prog', () => db.on(P('prog/' + r + '/' + s), v => { prog = v || {}; }));
+          db.get(P('stat/' + r + '/' + s)).then(v => { if (curKey === key && v && !statMem) statMem = v; });
+        } else resub('prog', null);
+      }
+      if (!formDirty) fillForm();
+      render();
+    });
+    resub('players', () => db.on(P('players'), v => { players = v || {}; render(); }));
+
+    /* ───── 小工具 ───── */
+    const stage = () => (game && game.stage != null ? game.stage : -1);
+    const status = () => (game && game.status) || 'lobby';
+    function aliveByTeam() {
+      const now = db.now(), out = new Array(cfg.teams.length).fill(0);
+      for (const pid in players) {
+        const p = players[pid]; if (!p || typeof p.tm !== 'number' || p.tm < 0 || p.tm >= out.length) continue;
+        if (p.bot || now - (p.hb || 0) < GS.ALIVE_MS) out[p.tm]++;
+      }
+      return out;
+    }
+    async function clearStage(r, s) {
+      await db.remove(P('prog/' + r + '/' + s)); await db.remove(P('res/' + r + '/' + s));
+      await db.remove(P('stat/' + r + '/' + s));
+    }
+
+    /* ───── 流程按鈕 ───── */
+    $('bIntro').onclick = () => {
+      const st = status(), s = stage();
+      const next = st === 'lobby' ? 0 : (st === 'result' ? s + 1 : s);
+      if (next > 3) return;
+      aw(async () => { await clearStage(round, next); await db.update(P('game'), { status: 'intro', stage: next, startAt: null, greenAt: null }); });
+    };
+    $('bStart').onclick = () => {
+      const s = stage(); if (s < 0 || status() !== 'intro') return;
+      const now = db.now(), mem = aliveByTeam();
+      let startAt, greenAt = null, endAt;
+      if (s < 3) { startAt = now + 3600; endAt = startAt + cfg.maxSec * 1000; }
+      else { startAt = now + 1200; greenAt = Math.round(startAt + 5 * GS.LIGHT_MS + 600 + Math.random() * 2000); endAt = greenAt + cfg.win4 * 1000 + 300; }
+      statMem = { startAt, endAt, t: mem.map(n => ({ p: 0, v: 0, n: Math.max(1, n) })) }; prevP = [];
+      botReset();
+      aw(async () => {
+        await clearStage(round, s);
+        await db.set(P('stat/' + round + '/' + s), statMem);
+        await db.update(P('game'), { status: 'play', startAt, greenAt, mem });
+      });
+    };
+    $('bEnd').onclick = () => {
+      if (status() !== 'play' || !statMem) return;
+      if (!confirm('提前結束本關？沒完成的隊伍會照目前進度推算時間。')) return;
+      statMem.endAt = Math.min(statMem.endAt, db.now()); statMem.forced = true;
+      db.set(P('stat/' + round + '/' + stage()), statMem);
+    };
+    $('bRetry').onclick = () => {
+      const s = stage(); if (s < 0) return;
+      if (!confirm(`重玩第 ${s + 1} 關？這關的成績會清掉。`)) return;
+      statMem = null;
+      aw(async () => { await clearStage(round, s); await db.update(P('game'), { status: 'intro', startAt: null, greenAt: null }); });
+    };
+    $('bFinal').onclick = () => aw(() => db.update(P('game'), { status: 'final' }));
+    $('bPodium').onclick = () => aw(() => db.update(P('game'), { status: 'podium' }));
+    $('bLobby').onclick = () => { if (status() === 'play' && !confirm('比賽進行中，確定回大廳？')) return; aw(() => db.update(P('game'), { status: 'lobby', stage: -1, startAt: null, greenAt: null })); };
+    $('bNew').onclick = () => {
+      if (!confirm('開新一局？成績從頭算（玩家名單保留）。')) return;
+      aw(() => db.update(P('game'), { round: round + 1, status: 'lobby', stage: -1, startAt: null, greenAt: null }));
+    };
+    $('bReset').onclick = () => {
+      const names = $('rsNames').checked;
+      if (!confirm('確定全部重置？' + (names ? '\n（會清掉玩家名單，手機回到登入頁）' : ''))) return;
+      aw(async () => {
+        await db.remove(P('prog')); await db.remove(P('res')); await db.remove(P('stat'));
+        if (names) await db.remove(P('players'));
+        const upd = { round: 1, status: 'lobby', stage: -1, startAt: null, greenAt: null, base: 0 };
+        if (names) upd.reset = 'r' + Date.now().toString(36);
+        await db.update(P('game'), upd);
+      });
+      $('rsNames').checked = false;
+    };
+
+    /* ───── 即時計算（每 0.3 秒） ───── */
+    let finalizing = false;
+    setInterval(() => {
+      if (!game || status() !== 'play' || !statMem) return;
+      const s = stage(), now = db.now();
+      botTick(now, s);
+      if (now < statMem.startAt) return;
+      const ts = GS.teamStat(cfg, s, prog, players, game.mem);
+      const T = cfg.teams.length, old = GS.toArr(statMem.t);
+      const t = ts.map((x, i) => {
+        const o = old[i] || {}, pv = prevP[i];
+        const r = { p: x.p, v: x.v, n: x.n };
+        if (o.d) { r.d = o.d; r.p = 1; }
+        else if (s < 3 && x.p >= 1 && now <= statMem.endAt) {
+          let d = now;
+          if (pv && x.p > pv.p) d = pv.t + (1 - pv.p) / (x.p - pv.p) * (now - pv.t);
+          r.d = Math.round(Math.max(statMem.startAt, Math.min(now, d))); r.p = 1;
+        }
+        if (now > statMem.endAt + 50 && !r.d) { r.p = o.p != null ? Math.max(o.p, Math.min(x.p, 0.999)) : x.p; }
+        prevP[i] = { p: x.p, t: now };
+        return r;
+      });
+      if (s < 3 && !statMem.forced) {
+        const ds = t.filter(x => x.d).map(x => x.d);
+        let end = statMem.startAt + cfg.maxSec * 1000;
+        if (ds.length) end = Math.min(end, Math.min(...ds) + cfg.grace * 1000);
+        if (ds.length === T) end = Math.min(end, Math.max(...ds) + 1500);
+        statMem.endAt = Math.min(statMem.endAt, end);
+        statMem.firstAt = ds.length ? Math.min(...ds) : null;
+      }
+      const nj = JSON.stringify(t);
+      if (nj !== statMem._last) { statMem.t = t; statMem._last = nj; const w = Object.assign({}, statMem); delete w._last; db.set(P('stat/' + round + '/' + s), w); }
+      else if (statMem._endW !== statMem.endAt) { statMem._endW = statMem.endAt; const w = Object.assign({}, statMem); delete w._last; delete w._endW; db.set(P('stat/' + round + '/' + s), w); }
+      if (now >= statMem.endAt + 1200 && !finalizing) {
+        finalizing = true;
+        const fin = { startAt: statMem.startAt, endAt: statMem.endAt, t };
+        const res = { t: GS.stageResult(cfg, s, fin), at: now };
+        const k = curKey;
+        aw(async () => {
+          if (curKey !== k) return;
+          await db.set(P('res/' + round + '/' + s), res);
+          await db.update(P('game'), { status: 'result' });
+        });
+      }
+    }, 300);
+
+    /* ───── 測試機器人 ───── */
+    let bots = {};
+    function botReset() { bots = {}; }
+    function botTick(now, s) {
+      const list = Object.keys(players).filter(k => players[k] && players[k].bot);
+      if (!list.length) return;
+      const upd = {};
+      list.forEach(k => {
+        const h = GS.hash(k.length * 7 + k.charCodeAt(k.length - 1) * 13 + (k.charCodeAt(k.length - 2) || 0));
+        const b = bots[k] || (bots[k] = { v: 0, t: now, react: 300 + h * 900, rate: 4.5 + h * 4.5, cut: 0, sent: -1 });
+        const dt = Math.min(0.5, (now - b.t) / 1000); b.t = now;
+        if (s < 2) { if (now > statMem.startAt + b.react && now < statMem.endAt) b.v += b.rate * dt * (0.7 + Math.random() * 0.6); }
+        else if (s === 2) {
+          if (now > statMem.startAt + b.react && now < statMem.endAt) {
+            if (now < b.cut) { } else if (Math.random() < 0.05 + 0.1 * h) b.cut = now + cfg.cut * 1000; else b.v += dt * 10;
+          }
+        } else if (game.greenAt && now > game.greenAt + b.react * 0.4 && now < game.greenAt + cfg.win4 * 1000) b.v += (b.rate + 1.5) * dt * (0.7 + Math.random() * 0.6);
+        const cap = GS.capOf(cfg, s), v = Math.min(cap, Math.floor(b.v));
+        if (v !== b.sent) { b.sent = v; upd[k] = v; }
+      });
+      if (Object.keys(upd).length) db.update(P('prog/' + round + '/' + s), upd);
+    }
+    $('bBot').onclick = () => {
+      const n = Math.max(1, Math.min(30, +$('botN').value || 3)), upd = {};
+      cfg.teams.forEach((t, i) => {
+        const tb = GS.parseTables(t.tb)[0] || '';
+        for (let k = 0; k < n; k++) upd['bot' + i + '_' + k] = { n: '機器人' + (i + 1) + '-' + (k + 1), tb, tm: i, hb: db.now(), bot: true };
+      });
+      aw(() => db.update(P('players'), upd));
+      $('botHint').textContent = `已加入每隊 ${n} 個機器人（共 ${n * cfg.teams.length} 個）`;
+    };
+    $('bBotDel').onclick = () => {
+      const upd = {}; Object.keys(players).forEach(k => { if (players[k] && players[k].bot) upd[k] = null; });
+      if (!Object.keys(upd).length) return;
+      aw(() => db.update(P('players'), upd));
+      $('botHint').textContent = '機器人已全部移除';
+    };
+
+    /* ───── 顯示 ───── */
+    const LABEL = { lobby: '大廳', intro: '說明中', play: '進行中', result: '本關結算', final: '總排名', podium: '頒獎台' };
+    function render() {
+      if (!game) return;
+      const st = status(), s = stage(), now = db.now();
+      $('sRound').textContent = round - (game.base || 0);
+      $('sStatus').textContent = (s >= 0 && st !== 'final' && st !== 'podium' && st !== 'lobby' ? `第 ${s + 1} 關 ${GS.STAGES[s].name}・` : '') + (LABEL[st] || st);
+      const alive = aliveByTeam(); $('sAlive').textContent = alive.reduce((a, b) => a + b, 0);
+      $('sLeft').textContent = st === 'play' && statMem ? Math.max(0, Math.ceil((statMem.endAt - now) / 1000)) : '-';
+      $('steps').innerHTML = GS.STAGES.map((S, i) => `<span class="${resAll[i] ? 'done' : ''} ${i === s && st !== 'final' && st !== 'podium' ? 'on' : ''}">${i + 1}. ${S.name}${resAll[i] ? ' ✔' : ''}</span>`).join('') + `<span class="${st === 'final' ? 'on' : ''}">總排名</span><span class="${st === 'podium' ? 'on' : ''}">頒獎台</span>`;
+      /* 按鈕 */
+      const nextIntro = st === 'lobby' ? 0 : (st === 'result' ? s + 1 : -1);
+      $('bIntro').disabled = !(nextIntro >= 0 && nextIntro <= 3);
+      $('bIntro').textContent = nextIntro >= 0 && nextIntro <= 3 ? `▶ 第 ${nextIntro + 1} 關說明（${GS.STAGES[nextIntro].name}）` : '▶ 下一關說明';
+      $('bStart').disabled = st !== 'intro';
+      $('bEnd').disabled = st !== 'play';
+      $('bRetry').disabled = !(s >= 0 && (st === 'intro' || st === 'play' || st === 'result'));
+      const allDone = [0, 1, 2, 3].every(i => resAll[i]);
+      $('bFinal').disabled = !allDone && st !== 'podium';
+      $('bPodium').disabled = !allDone;
+      document.querySelectorAll('.flow button').forEach(b => b.classList.remove('next'));
+      const nx = st === 'lobby' || (st === 'result' && s < 3) ? 'bIntro' : st === 'intro' ? 'bStart' : st === 'result' && s === 3 ? 'bFinal' : st === 'final' ? 'bPodium' : '';
+      if (nx) $(nx).classList.add('next');
+      /* 表格 */
+      const T = GS.totals(cfg, resAll), cur = s >= 0 ? (resAll[s] && GS.toArr(resAll[s].t)) : null;
+      const live = statMem && st === 'play' ? GS.toArr(statMem.t) : null;
+      $('tBody').innerHTML = cfg.teams.map((t, i) => {
+        const L = live && live[i], R = cur && cur[i], tot = T.list[i];
+        const pr = L ? (s < 3 ? `<span class="bar"><i style="width:${Math.round(L.p * 100)}%"></i></span>${Math.round(L.p * 100)}%` : `${L.v} 下/人`) : (R ? (s < 3 ? (R.done ? '完成' : Math.round(R.p * 100) + '%') : R.v + ' 下/人') : '-');
+        const sc = R ? (s < 3 ? GS.fmtT(R.time) + (R.done ? '' : '（推算）') : R.v + ' 下/人') : (L && L.d ? GS.fmtT((L.d - statMem.startAt) / 1000) : '-');
+        return `<tr><td><span class="sw" style="background:${t.c}"></span>${esc(t.n)}<span class="hint" style="margin-left:6px">${esc(t.tb)} 桌</span></td><td>${alive[i]}${L ? `（計 ${L.n}）` : ''}</td><td>${pr}</td><td>${sc}</td><td>${R ? '+' + R.pts : '-'}</td><td>${tot.st.map(x => x == null ? '·' : x).join(' / ')}</td><td><b>${tot.pts}</b></td><td>${T.done ? tot.rank : '-'}</td></tr>`;
+      }).join('');
+      const locked = st === 'play';
+      document.querySelectorAll('#app .card.full input, #app .card.full select, #bSave, #addTeam, .teamRow button').forEach(el => { if (el.id === 'rsNames' || el.id === 'logoFile') return; el.disabled = locked; });
+      $('lockHint').textContent = locked ? '（比賽進行中，設定已鎖定）' : (st !== 'lobby' ? '（遊戲進行中改分隊會影響計分，建議只改靈敏度）' : '');
+      $('saveHint').textContent = formDirty ? '⚠ 有尚未儲存的修改' : '';
+    }
+    setInterval(render, 500);
+
+    /* ───── 設定表單 ───── */
+    function teamRow(t) {
+      const d = document.createElement('div'); d.className = 'teamRow';
+      d.innerHTML = `<input class="tn" maxlength="8" value="${esc(t.n)}" placeholder="隊名"><input type="color" class="tc" value="${esc(t.c)}"><input class="tt" value="${esc(t.tb)}" placeholder="例如 1,2"><button class="sm ghost" title="刪除">✕</button>`;
+      d.querySelector('button').onclick = () => { if ($('teams').children.length <= 2) { alert('至少要 2 隊'); return; } d.remove(); formDirty = true; render(); };
+      return d;
+    }
+    function fillForm() {
+      $('cTitle').value = cfg.title; $('cBrand').value = cfg.brand; $('cTables').value = cfg.tables;
+      $('teams').innerHTML = ''; cfg.teams.forEach(t => $('teams').appendChild(teamRow(t)));
+      $('cNeed1').value = cfg.need1; $('cNeed2').value = cfg.need2; $('cNeed3').value = cfg.need3; $('cWin4').value = cfg.win4;
+      $('cGrace').value = cfg.grace; $('cMax').value = cfg.maxSec;
+      $('cTh').value = cfg.shakeTh; $('cRate').value = cfg.rate; $('cWob').value = cfg.wobble; $('cCut').value = cfg.cut;
+    }
+    $('addTeam').onclick = () => {
+      if ($('teams').children.length >= 8) { alert('最多 8 隊'); return; }
+      const cols = ['#ff2d55', '#1e9bff', '#ffc21a', '#2dd36f', '#b05cff', '#ff8a1e', '#19e3ff', '#ff5ac8'];
+      $('teams').appendChild(teamRow({ n: '第' + ($('teams').children.length + 1) + '隊', c: cols[$('teams').children.length % 8], tb: '' })); formDirty = true; render();
+    };
+    document.querySelector('main').addEventListener('input', e => { if (e.target.id === 'botN' || e.target.id === 'rsNames' || e.target.id === 'logoFile') return; if (e.target.closest('.card.full')) { formDirty = true; } });
+    $('bSave').onclick = async () => {
+      const teams = [...$('teams').children].map(d => ({ n: d.querySelector('.tn').value.trim() || '隊伍', c: d.querySelector('.tc').value, tb: d.querySelector('.tt').value.trim() }));
+      const c = {
+        title: $('cTitle').value.trim() || GS.DEFAULT_CFG.title, brand: $('cBrand').value.trim() || GS.DEFAULT_CFG.brand, tables: $('cTables').value.trim() || '1-8', teams,
+        need1: +$('cNeed1').value, need2: +$('cNeed2').value, need3: +$('cNeed3').value, win4: +$('cWin4').value,
+        grace: +$('cGrace').value, maxSec: +$('cMax').value, shakeTh: +$('cTh').value, rate: +$('cRate').value, wobble: +$('cWob').value, cut: +$('cCut').value
+      };
+      const clean = GS.cfgOf({ cfg: c });
+      await aw(() => db.set(P('game/cfg'), clean));
+      formDirty = false; fillForm(); $('saveHint').textContent = '✅ 已儲存'; setTimeout(render, 1500);
+    };
+
+    /* ───── Logo（壓縮後存在 logo 節點） ───── */
+    db.on(P('logo'), lg => { $('logoPrev').innerHTML = lg ? `<img src="${lg}">` : '尚未上傳'; });
+    $('logoPick').onclick = () => $('logoFile').click();
+    $('logoFile').onchange = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      $('logoHint').textContent = '處理中…';
+      try {
+        const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(f); });
+        const k = Math.min(1, 800 / img.naturalWidth, 320 / img.naturalHeight);
+        const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        let url = c.toDataURL('image/webp', 0.9);
+        if (!url.startsWith('data:image/webp')) url = c.toDataURL('image/png');
+        await aw(() => db.set(P('logo'), url));
+        $('logoHint').textContent = `✅ 已上傳（${c.width}×${c.height}，約 ${Math.round(url.length / 1024)} KB）`;
+      } catch (err) { console.error(err); $('logoHint').textContent = '❌ 這個檔案讀不到，請換 PNG 或 JPG'; }
+    };
+    $('logoDel').onclick = () => { if (confirm('確定移除 Logo？')) aw(() => db.set(P('logo'), null)); };
+
+    /* 機器人心跳 */
+    setInterval(() => {
+      const upd = {}; Object.keys(players).forEach(k => { if (players[k] && players[k].bot) upd[k + '/hb'] = db.now(); });
+      if (Object.keys(upd).length) aw(() => db.update(P('players'), upd));
+    }, GS.HB_MS);
+  }
+})();
+</script>
+</body>
+</html>

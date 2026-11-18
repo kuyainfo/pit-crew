@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07060f">
+<title>極速維修站 PIT CREW</title>
+<script>
+/* LINE 內建瀏覽器：加 openExternalBrowser=1 讓 LINE 改用手機預設瀏覽器開啟（動作感應在內建瀏覽器常常不能用） */
+(function () {
+  var ua = navigator.userAgent || '', url = location.href;
+  if (/\bLine\//i.test(ua) && !/[?&]openExternalBrowser=1/.test(url)) location.replace(url + (url.indexOf('?') > -1 ? '&' : '?') + 'openExternalBrowser=1');
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--red:#ff2d55;--yel:#ffd60a;--grn:#2dff8a;--cyan:#19e3ff;--bg:#07060f;--tm:#ff2d55;--card:rgba(12,12,24,.86);--line:rgba(255,255,255,.14);
+  --safeB:env(safe-area-inset-bottom,0px);--safeT:env(safe-area-inset-top,0px);--orb:'Orbitron','Noto Sans TC',sans-serif}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{background:var(--bg);color:#fff;font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{position:relative;width:100%;height:100vh;height:100dvh;overflow:hidden;margin:0 auto;background:var(--bg)}
+@media (min-width:600px){
+  body{background:radial-gradient(ellipse at 50% 30%,#2a0f1a,#05040b 70%);display:flex;align-items:center;justify-content:center}
+  #app{width:410px;height:min(calc(100vh - 40px),860px);border-radius:34px;box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 10px #0c0a16}
+}
+.screen{position:absolute;inset:0;display:none;flex-direction:column}
+.screen.on{display:flex}
+.orb{font-family:var(--orb)}
+/* 背景：維修區地板 */
+.floor{position:absolute;inset:0;background:
+  repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 2px,transparent 2px 60px),
+  repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 2px,transparent 2px 60px),
+  linear-gradient(180deg,#14121d,#07060f)}
+.hazard{position:absolute;left:0;right:0;height:14px;background:repeating-linear-gradient(135deg,#ffd60a 0 14px,#111 14px 28px);opacity:.9}
+/* 標題 */
+.logo{position:relative;margin-top:calc(8vh + var(--safeT));text-align:center;z-index:2}
+.logo .en{font-family:var(--orb);font-weight:900;font-style:italic;letter-spacing:.4em;font-size:13px;color:var(--yel);text-shadow:0 0 12px rgba(255,214,10,.6)}
+.logo h1{font-size:50px;font-weight:900;font-style:italic;letter-spacing:.05em;line-height:1.15;margin-top:6px;
+  background:linear-gradient(180deg,#fff 0%,#ffe9a8 45%,#ffb000 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 0 #5a3a00) drop-shadow(0 0 16px rgba(255,180,0,.45))}
+.logo .sub{margin-top:8px;font-size:14px;color:#c9c3d8;letter-spacing:.1em}
+/* 卡片 */
+.card{position:absolute;left:16px;right:16px;bottom:calc(22px + var(--safeB));background:var(--card);border:1px solid var(--line);border-radius:20px;
+  padding:18px 18px 20px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);box-shadow:0 14px 40px rgba(0,0,0,.6);z-index:2}
+.card::before{content:'';position:absolute;left:18px;right:18px;top:-1px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--yel),var(--red))}
+.lbl{font-size:13px;color:#aab0c8;margin:10px 0 6px;letter-spacing:.1em}
+.lbl:first-child{margin-top:0}
+input,select{width:100%;font:inherit;font-size:19px;font-weight:700;padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.05);color:#fff;outline:none;user-select:text;-webkit-user-select:text;appearance:none;-webkit-appearance:none}
+select option{color:#000}
+input:focus,select:focus{border-color:var(--yel);box-shadow:0 0 0 3px rgba(255,214,10,.18)}
+.btn{display:block;width:100%;margin-top:16px;font:inherit;font-size:20px;font-weight:900;letter-spacing:.25em;padding:14px 0 14px .25em;border:none;border-radius:14px;
+  color:#1a1200;cursor:pointer;background:linear-gradient(180deg,#ffe36b 0%,#ffc400 55%,#d99400 100%);box-shadow:0 4px 0 #7a5200,0 10px 24px rgba(255,196,0,.3)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 #7a5200}
+.btn:disabled{opacity:.45}
+.btn.ghost{background:rgba(255,255,255,.07);box-shadow:none;border:1px solid rgba(255,255,255,.2);color:#fff;font-size:15px;letter-spacing:.1em}
+.err{color:#ff8fa5;font-size:13px;min-height:18px;margin-top:8px;text-align:center}
+.tmPrev{margin-top:12px;text-align:center;font-size:15px;color:#cfd3e6;min-height:22px}
+.tmPrev b{display:inline-block;padding:2px 12px;border-radius:20px;background:var(--tm);color:#fff;margin-left:4px}
+.permBox{text-align:center;padding:0 22px;margin-top:4vh;z-index:2;position:relative}
+.permBox p{color:#d6d9e8;font-size:16px;line-height:1.7}
+.permBox p b{color:var(--yel)}
+.meter{height:16px;border-radius:9px;background:rgba(255,255,255,.08);overflow:hidden;margin:18px 0 6px}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--yel),var(--red));transition:width .15s}
+.ok{font-size:22px;font-weight:900;color:var(--grn);min-height:32px;margin-top:6px}
+/* 遊戲中主畫面 */
+#sMain{background:var(--tm)}
+#sMain .shade{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(0,0,0,0) 0%,rgba(0,0,0,.55) 75%),linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.6));transition:background .2s}
+#sMain.red .shade{background:radial-gradient(ellipse at 50% 40%,rgba(255,0,40,.0),rgba(60,0,0,.85) 75%)}
+#sMain.green .shade{background:radial-gradient(ellipse at 50% 40%,rgba(45,255,138,.25),rgba(0,40,10,.7) 75%)}
+#sMain.flash{animation:flash .18s}
+@keyframes flash{0%{filter:brightness(1.7)}100%{filter:brightness(1)}}
+.top{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;padding:calc(14px + var(--safeT)) 16px 0}
+.badge{font-weight:900;font-size:18px;padding:6px 16px;border-radius:30px;background:rgba(0,0,0,.35);border:2px solid rgba(255,255,255,.6)}
+.me{font-size:14px;color:rgba(255,255,255,.85);text-align:right}
+.center{position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 18px}
+.stg{font-family:var(--orb);font-weight:900;letter-spacing:.3em;font-size:14px;color:rgba(255,255,255,.8)}
+.ttl{font-size:46px;font-weight:900;letter-spacing:.06em;margin-top:6px;text-shadow:0 4px 0 rgba(0,0,0,.35)}
+.subt{font-size:18px;font-weight:700;margin-top:10px;line-height:1.55;color:rgba(255,255,255,.92)}
+.big{font-family:var(--orb);font-weight:900;font-size:120px;line-height:1;text-shadow:0 6px 0 rgba(0,0,0,.35)}
+.icon{width:150px;height:150px;margin:6px 0 10px}
+.icon svg{width:100%;height:100%}
+.wig .icon svg{animation:wig .25s infinite}
+@keyframes wig{0%{transform:rotate(-14deg)}50%{transform:rotate(14deg)}100%{transform:rotate(-14deg)}}
+.bump .icon svg{animation:bump .14s}
+@keyframes bump{0%{transform:scale(1.18)}100%{transform:scale(1)}}
+.bot{position:relative;z-index:2;padding:0 16px calc(20px + var(--safeB))}
+.pill{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,.38);border-radius:16px;padding:12px 16px;font-size:15px}
+.pill b{font-family:var(--orb);font-size:22px}
+.bar{height:10px;border-radius:6px;background:rgba(0,0,0,.35);overflow:hidden;margin-top:10px}
+.bar i{display:block;height:100%;width:0;background:#fff;transition:width .3s}
+.hint{font-size:13px;color:rgba(255,255,255,.75);text-align:center;margin-top:10px}
+#conn{position:fixed;top:calc(6px + var(--safeT));left:50%;transform:translateX(-50%);z-index:50;font-size:12px;background:#c00;padding:3px 10px;border-radius:10px;display:none}
+#conn.on{display:block}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="conn">連線中斷，重新連線中…</div>
+
+  <!-- 登入 -->
+  <section class="screen" id="sJoin">
+    <div class="floor"></div><div class="hazard" style="top:0"></div>
+    <div class="logo"><div class="en">PIT CREW</div><h1 id="gTitle">極速維修站</h1><div class="sub">全隊合力・最快進站</div></div>
+    <div class="card">
+      <div class="lbl">你的名字</div>
+      <input id="nameIn" maxlength="10" placeholder="例如：王小明" autocomplete="off">
+      <div class="lbl">桌號</div>
+      <select id="tbIn"><option value="">請選擇桌號</option></select>
+      <div class="tmPrev" id="tmPrev"></div>
+      <button class="btn" id="joinBtn">加入維修隊</button>
+      <div class="err" id="joinErr"></div>
+    </div>
+  </section>
+
+  <!-- 啟用感應 -->
+  <section class="screen" id="sPerm">
+    <div class="floor"></div><div class="hazard" style="top:0"></div>
+    <div class="logo"><div class="en">PIT CREW</div><h1 style="font-size:38px">啟用動作感應</h1></div>
+    <div class="permBox">
+      <p id="permTxt">這個遊戲要用手機的<b>搖晃感應</b>。<br>按下面按鈕，如果跳出詢問請按「<b>允許</b>」。</p>
+      <div class="meter"><i id="meterI"></i></div>
+      <div class="ok" id="permOk"></div>
+    </div>
+    <div class="card">
+      <button class="btn" id="permBtn">啟用感應</button>
+      <button class="btn ghost" id="permSkip" hidden>改用點擊模式</button>
+      <div class="err" id="permErr"></div>
+    </div>
+  </section>
+
+  <!-- 遊戲中 -->
+  <section class="screen" id="sMain">
+    <div class="shade"></div>
+    <div class="top"><div class="badge" id="mBadge">紅隊</div><div class="me" id="mMe"></div></div>
+    <div class="center" id="mCenter">
+      <div class="stg orb" id="mStg"></div>
+      <div class="icon" id="mIcon"></div>
+      <div class="ttl" id="mTtl"></div>
+      <div class="subt" id="mSub"></div>
+    </div>
+    <div class="bot">
+      <div class="pill" id="mPill"><span id="mPillL"></span><b id="mPillR"></b></div>
+      <div class="bar"><i id="mBar"></i></div>
+      <div class="hint" id="mHint"></div>
+    </div>
+  </section>
+</div>
+
+<script src="core.js"></script>
+<script>
+(async function () {
+  const $ = id => document.getElementById(id);
+  const SLOT = new URLSearchParams(location.search).get('slot') || '';
+  const LS = {
+    get: k => { try { return localStorage.getItem(k + SLOT); } catch (e) { return null; } },
+    set: (k, v) => { try { localStorage.setItem(k + SLOT, v); } catch (e) { } }
+  };
+  const vib = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) { } };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  const db = await GS.ready();
+  const P = s => GS.ROOT + '/' + s;
+  let game = {}, cfg = GS.cfgOf(null), round = 0;
+  let me = {}; try { me = JSON.parse(LS.get('pc_me') || '{}') || {}; } catch (e) { me = {}; }
+  const saveMe = () => LS.set('pc_me', JSON.stringify(me));
+  const M = GS.Motion(() => cfg); M.bindKeys(); M.bindTap($('sMain'));
+  let permDone = false;
+  let local = { key: '', v: 0, sent: -1 };
+
+  /* ───── 畫面切換 ───── */
+  function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
+
+  /* ───── 圖示 ───── */
+  const ICON = {
+    shake: '<svg viewBox="0 0 100 100"><g fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"><path d="M14 34 q-8 16 0 32"/><path d="M86 34 q8 16 0 32"/><path d="M5 26 q-12 24 0 48" opacity=".5"/><path d="M95 26 q12 24 0 48" opacity=".5"/></g><rect x="30" y="12" width="40" height="76" rx="9" fill="#fff"/><rect x="35" y="21" width="30" height="54" rx="3" fill="rgba(0,0,0,.35)"/><circle cx="50" cy="81" r="3" fill="rgba(0,0,0,.35)"/></svg>',
+    steady: '<svg viewBox="0 0 100 100"><rect x="30" y="8" width="40" height="76" rx="9" fill="#fff"/><rect x="35" y="17" width="30" height="54" rx="3" fill="rgba(0,0,0,.35)"/><path d="M50 30 c-8 12 -12 18 -12 25 a12 12 0 0 0 24 0 c0 -7 -4 -13 -12 -25z" fill="#ffd60a"/><path d="M22 94 h56" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg>',
+    burst: '<svg viewBox="0 0 100 100"><rect x="28" y="6" width="44" height="88" rx="10" fill="#111" stroke="#fff" stroke-width="4"/><circle cx="50" cy="28" r="11" fill="#ff2d55"/><circle cx="50" cy="52" r="11" fill="#ff2d55"/><circle cx="50" cy="76" r="11" fill="#2dff8a"/></svg>',
+    wait: '<svg viewBox="0 0 100 100"><rect x="8" y="22" width="84" height="54" rx="6" fill="none" stroke="#fff" stroke-width="5"/><path d="M38 86 h24" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M28 62 l14 -16 l10 10 l18 -20" fill="none" stroke="#ffd60a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    done: '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="#fff"/><path d="M30 52 l14 14 l28 -30" fill="none" stroke="#14a34a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    trophy: '<svg viewBox="0 0 100 100"><path d="M30 12 h40 v22 a20 20 0 0 1 -40 0z" fill="#ffd60a"/><path d="M30 18 h-12 a10 12 0 0 0 14 18 M70 18 h12 a10 12 0 0 1 -14 18" fill="none" stroke="#ffd60a" stroke-width="5"/><rect x="45" y="54" width="10" height="16" fill="#e0a800"/><rect x="30" y="70" width="40" height="12" rx="3" fill="#ffd60a"/></svg>'
+  };
+  let iconNow = '';
+  function setIcon(k) { if (iconNow === k) return; iconNow = k; $('mIcon').innerHTML = ICON[k] || ''; }
+
+  /* ───── 登入 ───── */
+  function fillTables() {
+    const sel = $('tbIn'), cur = sel.value || me.tb || '';
+    sel.innerHTML = '<option value="">請選擇桌號</option>' + GS.tableList(cfg).map(t => `<option value="${esc(t)}">第 ${esc(t)} 桌</option>`).join('');
+    sel.value = cur; prevTeam();
+  }
+  function prevTeam() {
+    const tb = $('tbIn').value;
+    if (!tb) { $('tmPrev').innerHTML = ''; return; }
+    const t = GS.team(cfg, GS.teamOfTable(cfg, tb));
+    $('tmPrev').innerHTML = `你是 <b style="background:${t.c}">${esc(t.n)}</b>`;
+  }
+  $('tbIn').onchange = prevTeam;
+  $('joinBtn').onclick = async () => {
+    const n = GS.cleanName($('nameIn').value), tb = $('tbIn').value;
+    if (!n) { $('joinErr').textContent = '請輸入名字'; return; }
+    if (!tb) { $('joinErr').textContent = '請選擇桌號'; return; }
+    $('joinBtn').disabled = true; $('joinErr').textContent = '';
+    try {
+      me = { pid: me.pid || GS.uid(), n, tb, tm: GS.teamOfTable(cfg, tb) };
+      await db.set(P('players/' + me.pid), { n: me.n, tb: me.tb, tm: me.tm, hb: db.now() });
+      saveMe(); LS.set('pc_reset', String(game.reset || ''));
+      route();
+    } catch (e) { console.error(e); $('joinErr').textContent = '連線失敗，請再按一次'; }
+    $('joinBtn').disabled = false;
+  };
+
+  /* ───── 啟用感應 ───── */
+  let permTimer = 0;
+  $('permBtn').onclick = async () => {
+    $('permErr').textContent = '';
+    const r = await M.request();
+    if (r !== 'ok') {
+      $('permErr').textContent = '沒有取得權限。可以改用點擊模式，或關掉頁面重開再按一次「允許」';
+      $('permSkip').hidden = false; return;
+    }
+    $('permBtn').hidden = true;
+    $('permTxt').innerHTML = '<b>用力搖一下手機</b>，看到綠色勾勾就成功了！';
+    clearTimeout(permTimer);
+    permTimer = setTimeout(() => { if (!M.saw) { $('permTxt').innerHTML = '這支手機偵測不到感應器。<br>可以改用<b>點擊模式</b>：狂點螢幕＝搖、按住螢幕＝拿穩'; $('permSkip').hidden = false; } }, 2500);
+    testing = true;
+  };
+  $('permSkip').onclick = () => { M.mode = 'tap'; finishPerm(); };
+  let testing = false, testN = 0;
+  function finishPerm() {
+    testing = false; permDone = true; LS.set('pc_tested', '1');
+    route();
+  }
+  M.onShake = src => { if (testing) { testN++; $('meterI').style.width = Math.min(100, testN * 34) + '%'; if (testN >= 3) { $('permOk').textContent = '✅ 偵測成功'; vib(60); testing = false; setTimeout(finishPerm, 700); } return; } onShake(src); };
+  /* Android 等不用詢問權限的手機：測過一次之後重新整理就直接開始 */
+  if (typeof DeviceMotionEvent === 'undefined' || typeof DeviceMotionEvent.requestPermission !== 'function') {
+    M.request();
+    if (LS.get('pc_tested') === '1') permDone = true;
+  }
+  try { if (navigator.wakeLock) { const wl = () => navigator.wakeLock.request('screen').catch(() => { }); wl(); document.addEventListener('visibilitychange', () => { if (!document.hidden) wl(); }); } } catch (e) { }
+
+  /* ───── 資料監聽 ───── */
+  const subs = {};
+  function resub(k, fn) { if (subs[k]) subs[k](); subs[k] = fn ? fn() : null; }
+  let stat = null, res = null, resAll = {}, stKey = '';
+  db.onConnected(ok => $('conn').classList.toggle('on', !ok));
+  db.on(P('game'), g => {
+    const old = JSON.stringify(cfg);
+    game = g || {}; cfg = GS.cfgOf(game);
+    if (JSON.stringify(cfg) !== old) { fillTables(); $('gTitle').textContent = cfg.title; }
+    /* 後台「全部重置」並勾選清名字：回到登入頁 */
+    const rs = String(game.reset || '');
+    if (rs && LS.get('pc_reset') !== rs) { if (me.pid) { me = {}; saveMe(); $('nameIn').value = ''; } LS.set('pc_reset', rs); }
+    /* 後台改了分隊：在大廳時自動更新自己的隊伍 */
+    if (me.pid && (game.status || 'lobby') === 'lobby') {
+      const tm = GS.teamOfTable(cfg, me.tb);
+      if (tm !== me.tm) { me.tm = tm; saveMe(); db.update(P('players/' + me.pid), { tm }); }
+    }
+    const r = game.round || 1;
+    if (r !== round) { round = r; resub('resAll', () => db.on(P('res/' + r), v => { resAll = v || {}; route(); })); }
+    const s = game.stage == null ? -1 : game.stage, key = r + '_' + s;
+    if (key !== stKey) {
+      stKey = key; stat = null; res = null; local = { key: '', v: 0, sent: -1 };
+      if (s >= 0) resub('stat', () => db.on(P('stat/' + r + '/' + s), v => { stat = v; }));
+      else resub('stat', null);
+    }
+    route();
+  });
+  /* 自己的資料被刪（後台清名單）→ 回登入 */
+  let meSub = '';
+  function watchMe() {
+    if (!me.pid || meSub === me.pid) return; meSub = me.pid;
+    resub('me', () => db.on(P('players/' + me.pid), v => { if (v === null && me.pid && meSub === me.pid) { me = {}; saveMe(); meSub = ''; route(); } }));
+  }
+  /* 心跳 */
+  setInterval(() => { if (me.pid) db.update(P('players/' + me.pid), { hb: db.now() }).catch(() => { }); }, GS.HB_MS);
+
+  /* ───── 玩法狀態 ───── */
+  let falseAt = 0, cutUntil = 0, lastT = performance.now(), steadyState = 'ok';
+  function phase() {
+    const st = game.status || 'lobby';
+    if (st !== 'play') return st;
+    const now = db.now(), s = game.stage;
+    if (stat && stat.endAt && now > stat.endAt) return 'closing';
+    if (s === 3) {
+      if (now < (game.greenAt || Infinity)) return now < (game.startAt || 0) ? 'ready' : 'red';
+      return now < game.greenAt + cfg.win4 * 1000 ? 'go' : 'closing';
+    }
+    return now < (game.startAt || 0) ? 'count' : 'play';
+  }
+  function teamDone() { const t = stat && GS.toArr(stat.t)[me.tm]; return !!(t && t.d); }
+  function canCount() {
+    const ph = phase(); const s = game.stage;
+    if (s === 3) return ph === 'go';
+    return ph === 'play' && !teamDone();
+  }
+  function ensureLocal() {
+    const key = round + '_' + game.stage;
+    if (local.key === key) return;
+    local = { key, v: 0, sent: -1 };
+    db.get(P('prog/' + round + '/' + game.stage + '/' + me.pid)).then(v => { if (local.key === key && v > local.v) { local.v = v; local.sent = v; } }).catch(() => { });
+  }
+  function onShake(src) {
+    if (!me.pid || game.status !== 'play') return;
+    const s = game.stage; if (s === 2) return;
+    ensureLocal();
+    const ph = phase();
+    if (s === 3 && ph === 'red') { falseAt = performance.now(); vib(120); return; }
+    if (!canCount()) return;
+    local.v++;
+    vib(15);
+    const sm = $('sMain'); sm.classList.remove('flash', 'bump'); void sm.offsetWidth; sm.classList.add('flash');
+    const c = $('mCenter'); c.classList.remove('bump'); void c.offsetWidth; c.classList.add('bump');
+  }
+  /* 加油關：每 0.1 秒累積拿穩時間 */
+  setInterval(() => {
+    const now = performance.now(), dt = Math.min(0.25, (now - lastT) / 1000); lastT = now;
+    if (!me.pid || game.status !== 'play' || game.stage !== 2) return;
+    ensureLocal();
+    const st = M.steady(now);
+    if (st === 'wobble') { if (cutUntil < now) vib(140); cutUntil = now + cfg.cut * 1000; }
+    if (!canCount()) { steadyState = 'idle'; return; }
+    if (now < cutUntil) steadyState = 'cut';
+    else if (st === 'ok') { steadyState = 'ok'; local.v += dt * 10; }
+    else steadyState = st;
+  }, 100);
+  /* 上傳進度 */
+  setInterval(() => {
+    if (!me.pid || game.status !== 'play' || local.key !== round + '_' + game.stage) return;
+    const v = Math.floor(local.v);
+    if (v === local.sent) return;
+    local.sent = v;
+    db.set(P('prog/' + round + '/' + game.stage + '/' + me.pid), v).catch(() => { local.sent = -1; });
+  }, 400);
+
+  /* ───── 路由 ───── */
+  function route() {
+    if (!me.pid) { show('sJoin'); fillTables(); return; }
+    watchMe();
+    if (!permDone) { show('sPerm'); return; }
+    show('sMain');
+    const t = GS.team(cfg, me.tm);
+    document.documentElement.style.setProperty('--tm', t.c);
+    $('mBadge').textContent = t.n; $('mMe').innerHTML = `${esc(me.n)}<br>第 ${esc(me.tb)} 桌`;
+    draw();
+  }
+  function setTxt(stg, ttl, sub, pillL, pillR, bar, hint) {
+    $('mStg').textContent = stg; $('mTtl').innerHTML = ttl; $('mSub').innerHTML = sub;
+    $('mPill').style.display = pillL ? '' : 'none'; $('mPillL').textContent = pillL || ''; $('mPillR').textContent = pillR || '';
+    $('mBar').parentNode.style.display = bar == null ? 'none' : ''; if (bar != null) $('mBar').style.width = Math.round(bar * 100) + '%';
+    $('mHint').innerHTML = hint || '';
+  }
+  function draw() {
+    if (!$('sMain').classList.contains('on')) return;
+    const sm = $('sMain'), ph = phase(), s = game.stage, S = GS.STAGES[s] || null;
+    sm.classList.remove('red', 'green', 'wig');
+    const tStat = stat && GS.toArr(stat.t)[me.tm];
+    const stg = S ? `STAGE ${S.no}/4 ・ ${S.en}` : 'PIT CREW';
+    const tap = M.mode !== 'motion';
+    if (ph === 'lobby' || s < 0 || s == null) {
+      setIcon('wait'); setTxt('PIT CREW', '看大螢幕！', '等主持人開始<br>遊戲中不用看手機，跟著大螢幕狂搖就好', '', '', null, tap ? '點擊模式：狂點螢幕＝搖、按住螢幕＝拿穩' : '握緊手機，搖的時候手不要甩太開');
+      return;
+    }
+    if (ph === 'intro') {
+      setIcon(S.act); if (S.act === 'shake') sm.classList.add('wig');
+      setTxt(stg, S.name, S.tip, '', '', null, S.act === 'steady' ? (tap ? '點擊模式：按住螢幕不放＝拿穩' : '手機要<b>直立</b>拿著，平放在桌上不算喔') : '準備好！主持人倒數後開始');
+      return;
+    }
+    if (ph === 'count' || ph === 'ready') {
+      const left = Math.max(1, Math.ceil(((game.startAt || 0) - db.now()) / 1000));
+      setIcon(S.act); $('mIcon').innerHTML = `<div class="big">${s === 3 ? '' : left}</div>`; iconNow = '';
+      setTxt(stg, s === 3 ? '準備…' : S.name, s === 3 ? '紅燈亮起時<b>不要搖</b>' : '準備！', '', '', null, '');
+      return;
+    }
+    if (ph === 'red') {
+      sm.classList.add('red'); setIcon('burst');
+      const fs = performance.now() - falseAt < 900;
+      setTxt(stg, fs ? '搶跑！' : '等綠燈…', fs ? '綠燈前搖的不算喔' : '先別搖！', '', '', null, '');
+      return;
+    }
+    if (ph === 'go') {
+      sm.classList.add('green', 'wig'); setIcon('shake');
+      const left = Math.max(0, (game.greenAt + cfg.win4 * 1000 - db.now()) / 1000);
+      setTxt(stg, 'GO！狂搖！', '', '你搖了', Math.floor(local.v) + ' 下', left / cfg.win4, `剩 ${left.toFixed(1)} 秒`);
+      return;
+    }
+    if (ph === 'play') {
+      const p = tStat ? tStat.p : 0;
+      if (s === 2) {
+        setIcon('steady');
+        const m = { ok: ['加油中…', '穩住！保持不動'], cut: ['斷油！', '晃到了，等一下再繼續'], flat: ['把手機立起來', '直立拿著才會加油'], wobble: ['斷油！', '不要晃！'], off: ['按住螢幕', '按住不放就會加油'], idle: ['加油中…', ''] }[steadyState] || ['加油中…', ''];
+        if (steadyState === 'cut' || steadyState === 'wobble' || steadyState === 'flat') sm.classList.add('red');
+        setTxt(stg, m[0], m[1], '全隊油量', Math.round(p * 100) + '%', p, `你已加油 ${(local.v / 10).toFixed(1)} 秒`);
+      } else {
+        sm.classList.add('wig'); setIcon('shake');
+        const sub = s === 1 ? `第 ${Math.min(4, Math.floor(p * 4) + 1)} 顆輪胎` : '把車頂起來！';
+        setTxt(stg, '狂搖！', sub, '全隊進度', Math.round(p * 100) + '%', p, `你搖了 ${Math.floor(local.v)} 下`);
+      }
+      if (teamDone()) { setIcon('done'); setTxt(stg, '完成！', '等其他隊…看大螢幕', '全隊進度', '100%', 1, ''); }
+      return;
+    }
+    if (ph === 'closing') { setIcon('done'); setTxt(stg, '時間到！', '計算成績中…', '', '', null, ''); return; }
+    if (ph === 'result') {
+      const r = resAll[s] && GS.toArr(resAll[s].t)[me.tm];
+      setIcon('done');
+      if (r) setTxt(stg, `第 ${r.rank} 名`, `${S.name} ${s < 3 ? GS.fmtT(r.time) : r.v + ' 下/人'}`, '本關得分', '+' + r.pts, null, '看大螢幕，等下一關');
+      else setTxt(stg, '計算中…', '', '', '', null, '');
+      return;
+    }
+    if (ph === 'final' || ph === 'podium') {
+      const T = GS.totals(cfg, resAll), mine = T.list[me.tm];
+      setIcon('trophy');
+      setTxt('FINAL', mine ? `總排名 第 ${mine.rank} 名` : '總排名', mine ? `${esc(GS.team(cfg, me.tm).n)} 總分 ${mine.pts} 分` : '', '', '', null, '辛苦了，看大螢幕頒獎！');
+      return;
+    }
+    setIcon('wait'); setTxt(stg, '看大螢幕！', '', '', '', null, '');
+  }
+  setInterval(draw, 100);
+  route();
+})();
+</script>
+</body>
+</html>
